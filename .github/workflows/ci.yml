@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # No runtime dependencies, so the smoke test runs without an install step.
+      - name: Smoke test
+        run: node test/smoke.js
+
+      - name: Install dev dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Package the extension
+        run: npm run package
