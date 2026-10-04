@@ -1,0 +1,127 @@
+{
+  "name": "opencode-terminal",
+  "displayName": "OpenCode Terminal",
+  "description": "Open the OpenCode agent (opencode CLI) in the VS Code integrated terminal with one shortcut and insert @file references from the editor.",
+  "version": "0.1.0",
+  "publisher": "r3d3dev",
+  "license": "MIT",
+  "author": {
+    "name": "r3d3dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/r3d3dev/opencode-terminal"
+  },
+  "bugs": {
+    "url": "https://github.com/r3d3dev/opencode-terminal/issues"
+  },
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "opencode",
+    "ai",
+    "agent",
+    "terminal",
+    "cli"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "icon": "images/icon.png",
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "opencodeTerminal.open",
+        "title": "Open in Terminal",
+        "category": "OpenCode",
+        "icon": "$(terminal-view-icon)"
+      },
+      {
+        "command": "opencodeTerminal.openNew",
+        "title": "Open in New Terminal",
+        "category": "OpenCode",
+        "icon": "$(add)"
+      },
+      {
+        "command": "opencodeTerminal.insertFileRef",
+        "title": "Insert @-File Reference",
+        "category": "OpenCode",
+        "icon": "$(file-code)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "opencodeTerminal.open",
+        "key": "cmd+escape",
+        "mac": "cmd+escape",
+        "win": "ctrl+escape",
+        "linux": "ctrl+escape"
+      },
+      {
+        "command": "opencodeTerminal.openNew",
+        "key": "cmd+shift+escape",
+        "mac": "cmd+shift+escape",
+        "win": "ctrl+shift+escape",
+        "linux": "ctrl+shift+escape"
+      },
+      {
+        "command": "opencodeTerminal.insertFileRef",
+        "key": "cmd+alt+k",
+        "mac": "cmd+alt+k",
+        "win": "ctrl+alt+k",
+        "linux": "ctrl+alt+k"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "opencodeTerminal.openNew",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "opencodeTerminal.open"
+        },
+        {
+          "command": "opencodeTerminal.openNew"
+        },
+        {
+          "command": "opencodeTerminal.insertFileRef"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "OpenCode Terminal",
+      "properties": {
+        "opencode.command": {
+          "type": "string",
+          "default": "opencode",
+          "markdownDescription": "Command used to start OpenCode in the terminal. Change it if the `opencode` binary is not on `PATH` (for example an absolute path or a version-manager shim)."
+        },
+        "opencode.autoIncludeFile": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Automatically append an `@file` reference for the active editor when a **new** OpenCode terminal is opened."
+        },
+        "opencode.fileRefDelay": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 0,
+          "markdownDescription": "Delay in milliseconds before the automatic `@file` reference is sent to a newly opened terminal. Increase it if your shell startup is slow and the reference is swallowed before OpenCode starts."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^4.0.0"
+  }
+}

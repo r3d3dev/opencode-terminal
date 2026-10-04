@@ -1,0 +1,7 @@
+.vscode/**
+.gitignore
+*.vsix
+node_modules/**
+!node_modules/.package-lock.json
+PUBLISHING.md
+scripts/**
