@@ -30,6 +30,16 @@ build, not affiliated with the OpenCode project.
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
 
+## Notes
+
+- The keybindings intentionally match the official `sst-dev.opencode` extension
+  (`Cmd/Ctrl+Esc`, `Cmd/Ctrl+Shift+Esc`, `Cmd/Ctrl+Alt+K`). Do not install both
+  at once: the shortcuts would conflict.
+- The automatic `@file` reference is sent after a short delay
+  (`opencode.fileRefDelay`, default 1000 ms) because the VS Code terminal API
+  offers no reliable "OpenCode is ready" signal. If your shell starts slowly and
+  the reference lands in the shell instead of OpenCode, raise the delay.
+
 ## UI buttons
 
 | Where | Command | Action |

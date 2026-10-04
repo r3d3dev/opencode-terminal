@@ -15,3 +15,9 @@
 - Compatible with OpenCode CLI v2 (no `--port` flag, no legacy HTTP endpoints).
 - Marketplace listing tuned for the "opencode v2" / "opencode terminal" queries
   (`displayName`, `description`, `keywords`, `AI` category).
+- Hardened manifest: `capabilities.untrustedWorkspaces` (unsupported) and
+  `virtualWorkspaces`; keybindings deduplicated; `test` script and CI added;
+  `.vscodeignore` trimmed (`test/`, `package-lock.json`).
+- `@file` paths include the workspace folder in multi-root workspaces; delayed
+  sends are cancelled on deactivate; terminals whose process exited are no
+  longer reused.
