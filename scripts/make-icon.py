@@ -24,7 +24,7 @@ U = 28
 OW, OH = 10 * U, 13 * U
 OX, OY = (GRID - OW) // 2, (GRID - OH) // 2  # centre the mark inside the icon
 CX, CY = OX + 2 * U, OY + 2 * U  # counter
-CELLS = [(1, 3), (2, 4), (1, 5), (3, 6), (4, 6)]
+CELLS = [(1, 4), (2, 5), (1, 6), (3, 7), (4, 7)]
 RADIUS = 104
 
 
@@ -46,8 +46,8 @@ def layers():
         and not rect(x, y, CX, CY, CX + 6 * U, CY + 9 * U),
         FRAME,
     ))
-    out.append((lambda x, y: rect(x, y, CX, CY, CX + 6 * U, CY + 1 * U), STRIP))
-    out.append((lambda x, y: rect(x, y, CX, CY + 1 * U, CX + 6 * U, CY + 9 * U), PANEL))
+    out.append((lambda x, y: rect(x, y, CX, CY, CX + 6 * U, CY + 3 * U), STRIP))
+    out.append((lambda x, y: rect(x, y, CX, CY + 3 * U, CX + 6 * U, CY + 9 * U), PANEL))
     for c, r in CELLS:
         x0, y0 = CX + c * U, CY + r * U
         out.append((

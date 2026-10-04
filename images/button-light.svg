@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
   <path fill-rule="evenodd" clip-rule="evenodd" d="M446 9H66V503H446V9ZM370 85H142V427H370V85Z" fill="#5A61A0"/>
-  <rect x="142" y="85" width="228" height="38" fill="#E4E4EC"/>
-  <rect x="142" y="123" width="228" height="304" fill="#C7CADD"/>
+  <rect x="142" y="85" width="228" height="114" fill="#E4E4EC"/>
+  <rect x="142" y="199" width="228" height="228" fill="#C7CADD"/>
   <g fill="#1A1A28">
-    <rect x="180" y="199" width="38" height="38"/>
-    <rect x="218" y="237" width="38" height="38"/>
-    <rect x="180" y="275" width="38" height="38"/>
-    <rect x="256" y="313" width="38" height="38"/>
-    <rect x="294" y="313" width="38" height="38"/>
+    <rect x="180" y="237" width="38" height="38"/>
+    <rect x="218" y="275" width="38" height="38"/>
+    <rect x="180" y="313" width="38" height="38"/>
+    <rect x="256" y="351" width="38" height="38"/>
+    <rect x="294" y="351" width="38" height="38"/>
   </g>
 </svg>
