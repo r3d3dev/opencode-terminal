@@ -21,3 +21,5 @@
 - `@file` paths include the workspace folder in multi-root workspaces; delayed
   sends are cancelled on deactivate; terminals whose process exited are no
   longer reused.
+- Replaced the copied OpenCode logo with an original mark (periwinkle terminal
+  badge, inset band, three-dot prompt) and regenerated `images/icon.png`.

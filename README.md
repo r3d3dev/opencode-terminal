@@ -47,8 +47,10 @@ workspace, its `@file` reference is appended automatically.
 | Editor title bar | Open in New Terminal | Start a fresh OpenCode terminal beside the editor. |
 | Terminal panel title bar | Open in Terminal | Start OpenCode, or focus the existing `opencode` terminal. |
 
-Both buttons use the OpenCode mark instead of a generic codicon. The terminal
-tab itself gets the same mark as its icon.
+Both buttons use the extension's own mark (a periwinkle terminal badge with an
+inset band and a prompt glyph) instead of a generic codicon. The terminal tab
+itself gets the same mark as its icon. The mark is an original design, not the
+OpenCode logo.
 
 The panel button is contributed through `view/title` with
 `when: view == terminal`, which is where VS Code renders the built-in

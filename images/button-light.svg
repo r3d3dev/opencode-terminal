@@ -1,5 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-  <rect width="512" height="512" fill="#FDFCFC"/>
-  <path d="M320 224V352H192V224H320Z" fill="#E6E5E6"/>
-  <path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="#17181C"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M446 9H66V503H446V9ZM370 85H142V427H370V85Z" fill="#5A61A0"/>
+  <rect x="142" y="85" width="228" height="76" fill="#E4E4EC"/>
+  <rect x="142" y="161" width="228" height="266" fill="#C7CADD"/>
+  <g fill="#1A1A28">
+    <rect x="180" y="199" width="38" height="38"/>
+    <rect x="218" y="237" width="38" height="38"/>
+    <rect x="180" y="275" width="38" height="38"/>
+    <rect x="180" y="351" width="38" height="38"/>
+    <rect x="218" y="351" width="38" height="38"/>
+  </g>
 </svg>
