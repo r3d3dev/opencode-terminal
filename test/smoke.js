@@ -31,6 +31,7 @@ const fakeVscode = {
       const terminal = {
         name: options.name,
         options,
+        creationOptions: options, // what the real API exposes for env lookups
         sent: [],
         exitStatus: undefined,
         shown: 0,
@@ -281,7 +282,13 @@ const editor = (relPath, selection) => {
     assert.ok(!kb.key.startsWith("cmd+"), "default key is not macOS-only");
   }
 
-  // 14. single-root workspace: path is not prefixed with the folder name
+  // 14. manifest: the v1 integration mode exists and defaults to typed
+  const integration = manifest.contributes.configuration.properties["opencode.integration"];
+  assert.ok(integration, "opencode.integration setting present");
+  assert.strictEqual(integration.default, "typed", "typed is the default");
+  assert.deepStrictEqual(integration.enum, ["typed", "port"], "both modes documented");
+
+  // 15. single-root workspace: path is not prefixed with the folder name
   fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
   fakeVscode.workspace.settings.autoIncludeFile = true;
   fakeVscode.window.activeTextEditor = editor("src/app.ts");
@@ -294,7 +301,7 @@ const editor = (relPath, selection) => {
     "single-root: no workspace folder prefix",
   );
 
-  // 15. multi-root workspace: prefix the folder name
+  // 16. multi-root workspace: prefix the folder name
   fakeVscode.workspace.workspaceFolders = [
     { uri: "file:///proj" },
     { uri: "file:///other" },
@@ -308,7 +315,7 @@ const editor = (relPath, selection) => {
     "multi-root: include workspace folder",
   );
 
-  // 16. a terminal whose process exited is not reused
+  // 17. a terminal whose process exited is not reused
   fakeVscode.window.terminals.length = 0;
   fakeVscode.window.activeTerminal = undefined;
   const dead = fakeVscode.window.createTerminal({ name: "opencode" });
@@ -319,6 +326,71 @@ const editor = (relPath, selection) => {
     calls.createdTerminals.length,
     beforeDead + 1,
     "dead terminal replaced, not focused",
+  );
+
+  // 18. integration=port: free port per terminal, --port flag, HTTP append
+  const fetchCalls = [];
+  global.fetch = async (url, opts) => {
+    fetchCalls.push({ url, opts });
+    return { ok: true, status: 200 };
+  };
+  fakeVscode.workspace.settings.integration = "port";
+  fakeVscode.workspace.settings.autoIncludeFile = true;
+  fakeVscode.workspace.settings.fileRefDelay = 0;
+  fakeVscode.workspace.settings.command = "opencode";
+  fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+  fakeVscode.window.activeTextEditor = editor("src/port.ts");
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.activeTerminal = undefined;
+  const beforePort = calls.createdTerminals.length;
+  await calls.registered["opencodeTerminal.open"]();
+  const t5 = calls.createdTerminals[calls.createdTerminals.length - 1];
+  assert.strictEqual(
+    calls.createdTerminals.length,
+    beforePort + 1,
+    "port mode creates a terminal",
+  );
+  const portEnv = t5.options.env._EXTENSION_OPENCODE_PORT;
+  assert.ok(portEnv && /^\d+$/.test(portEnv), "a free port is stored in the env");
+  assert.deepStrictEqual(
+    t5.sent.map((s) => s.text),
+    [`opencode --port ${portEnv}`],
+    "launched with --port and the ref is not typed",
+  );
+  const posted = fetchCalls.find((c) => c.url.includes("/tui/append-prompt"));
+  assert.ok(posted, "POST /tui/append-prompt issued");
+  assert.strictEqual(
+    JSON.parse(posted.opts.body).text,
+    "@src/port.ts",
+    "prompt body carries the reference",
+  );
+
+  // 19. integration=port, server unreachable -> falls back to typing
+  global.fetch = async () => {
+    throw new Error("ECONNREFUSED");
+  };
+  const withPort = fakeVscode.window.createTerminal({
+    name: "opencode",
+    env: { _EXTENSION_OPENCODE_PORT: "45678" },
+  });
+  fakeVscode.window.activeTerminal = withPort;
+  fakeVscode.window.activeTextEditor = editor("src/fb.ts");
+  await calls.registered["opencodeTerminal.insertFileRef"]();
+  assert.deepStrictEqual(
+    withPort.sent.map((s) => s.text),
+    ["@src/fb.ts"],
+    "falls back to typing when the server is unreachable",
+  );
+
+  // 20. integration=typed: unchanged behaviour, no HTTP call
+  fakeVscode.workspace.settings.integration = "typed";
+  const typedOnly = fakeVscode.window.createTerminal({ name: "opencode" });
+  fakeVscode.window.activeTerminal = typedOnly;
+  await calls.registered["opencodeTerminal.insertFileRef"]();
+  assert.deepStrictEqual(
+    typedOnly.sent.map((s) => s.text),
+    ["@src/fb.ts"],
+    "typed mode sends the reference as terminal input",
   );
 
   console.log("OK: all smoke tests passed");

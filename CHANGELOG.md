@@ -25,3 +25,7 @@
   badge, inset band, three-dot prompt) and regenerated `images/icon.png`.
 - Clarified that the extension is not tied to a CLI version (works with v1 and
   v2); added the `opencode v1` keyword.
+- Minimal OpenCode CLI v1 support: new `opencode.integration` setting (`typed`
+  by default, `port` for v1). In `port` mode a free port is allocated per
+  terminal, OpenCode is started with `--port <n>` and the reference is appended
+  via `POST /tui/append-prompt`, with a fallback to typing.

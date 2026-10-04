@@ -143,6 +143,19 @@
     "configuration": {
       "title": "OpenCode v2 Terminal",
       "properties": {
+        "opencode.integration": {
+          "type": "string",
+          "enum": [
+            "typed",
+            "port"
+          ],
+          "enumDescriptions": [
+            "Type the @file reference into the terminal (works with any CLI version).",
+            "Start OpenCode with --port <free port> and append the reference through its HTTP API (OpenCode CLI v1 style)."
+          ],
+          "default": "typed",
+          "markdownDescription": "How the `@file` reference reaches OpenCode. `typed` sends it as terminal input and works with any CLI version. `port` starts OpenCode with `--port <free port>` and appends the reference over HTTP (`POST /tui/append-prompt`), which is how the OpenCode CLI v1 integration worked and avoids waiting on `opencode.fileRefDelay`. The CLI v2 rejects `--port`, so keep the default `typed` unless you run v1."
+        },
         "opencode.command": {
           "type": "string",
           "default": "opencode",

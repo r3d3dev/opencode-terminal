@@ -64,6 +64,7 @@ terminal title actions (`+`, split, kill).
 | Setting | Default | Description |
 | --- | --- | --- |
 | `opencode.command` | `opencode` | Command used to start OpenCode (absolute path or shim if it is not on `PATH`). |
+| `opencode.integration` | `typed` | `typed` types the `@file` reference into the terminal (any CLI version). `port` starts OpenCode with `--port <free port>` and appends the reference over HTTP — the OpenCode CLI v1 style. |
 | `opencode.autoIncludeFile` | `true` | Automatically append the active `@file` reference when opening a **new** terminal. |
 | `opencode.fileRefDelay` | `1000` | Delay (ms) before the automatic reference is sent to a fresh terminal. Increase it if your shell startup is slow. |
 
@@ -78,6 +79,25 @@ npm install
 npm run package
 code --install-extension opencode-terminal-0.1.0.vsix
 ```
+
+## OpenCode CLI v1 (`--port`)
+
+CLI v1 runs a local HTTP server next to the TUI; the official v1 extension
+started it as `opencode --port <port>` and pushed file references into the
+running prompt over that port. CLI v2 dropped the flag — that is exactly what
+broke the official extension
+([#49085](https://github.com/anomalyco/opencode/issues/49085)) — so this path is
+opt-in:
+
+```json
+"opencode.integration": "port"
+```
+
+With `port`, the extension asks the OS for a free port, starts
+`opencode --port <n>` (every terminal gets its own port, nothing is hardcoded),
+waits for `http://127.0.0.1:<n>/app` and then appends the reference with
+`POST /tui/append-prompt`. If the server never answers, it falls back to typing
+the reference, so the setting cannot break the usual workflow.
 
 ## Development
 
