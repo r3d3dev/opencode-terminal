@@ -26,6 +26,20 @@ and the unmerged fix [PR #49084](https://github.com/anomalyco/opencode/pull/4908
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
 
+## UI buttons
+
+| Where | Command | Action |
+| --- | --- | --- |
+| Editor title bar | Open in New Terminal | Start a fresh OpenCode terminal beside the editor. |
+| Terminal panel title bar | Open in Terminal | Start OpenCode, or focus the existing `opencode` terminal. |
+
+Both buttons use the OpenCode mark instead of a generic codicon. The terminal
+tab itself gets the same mark as its icon.
+
+The panel button is contributed through `view/title` with
+`when: view == terminal`, which is where VS Code renders the built-in
+terminal title actions (`+`, split, kill).
+
 ## Settings
 
 | Setting | Default | Description |

@@ -39,13 +39,19 @@
         "command": "opencodeTerminal.open",
         "title": "Open in Terminal",
         "category": "OpenCode",
-        "icon": "$(terminal-view-icon)"
+        "icon": {
+          "light": "images/button-dark.svg",
+          "dark": "images/button-light.svg"
+        }
       },
       {
         "command": "opencodeTerminal.openNew",
         "title": "Open in New Terminal",
         "category": "OpenCode",
-        "icon": "$(add)"
+        "icon": {
+          "light": "images/button-dark.svg",
+          "dark": "images/button-light.svg"
+        }
       },
       {
         "command": "opencodeTerminal.insertFileRef",
@@ -82,6 +88,13 @@
         {
           "command": "opencodeTerminal.openNew",
           "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "opencodeTerminal.open",
+          "group": "navigation",
+          "when": "view == terminal"
         }
       ],
       "commandPalette": [

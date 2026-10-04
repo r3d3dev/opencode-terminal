@@ -18,6 +18,11 @@ const calls = {
 
 const fakeVscode = {
   ViewColumn: { Beside: 2 },
+  Uri: {
+    file(p) {
+      return { fsPath: p, scheme: "file" };
+    },
+  },
   window: {
     terminals: [],
     activeTerminal: undefined,
@@ -91,7 +96,10 @@ require.cache[__filename] = {
 
 // --- load extension --------------------------------------------------------
 const ext = require(path.join(__dirname, "..", "extension.js"));
-const context = { subscriptions: [] };
+const context = {
+  subscriptions: [],
+  asAbsolutePath: (p) => path.join(__dirname, "..", p),
+};
 ext.activate(context);
 
 assert.ok(typeof ext.deactivate === "function", "deactivate exported");
@@ -126,6 +134,10 @@ const editor = (relPath, selection) => {
   const t1 = calls.createdTerminals[0];
   assert.strictEqual(t1.name, "opencode", "terminal named opencode");
   assert.strictEqual(t1.options.env.OPENCODE_CALLER, "vscode", "env set");
+  assert.ok(
+    /images\/button-dark\.svg$/.test(t1.options.iconPath.light.fsPath),
+    "terminal tab gets the opencode mark",
+  );
   assert.deepStrictEqual(
     t1.sent.map((s) => s.text),
     ["opencode", "@src/app.ts"],
@@ -216,6 +228,36 @@ const editor = (relPath, selection) => {
   await calls.registered["opencodeTerminal.open"]();
   const t4 = calls.createdTerminals[calls.createdTerminals.length - 1];
   assert.strictEqual(t4.sent[0].text, "/usr/local/bin/opencode", "custom cmd");
+
+  // 10. manifest: icons resolve to real files
+  const fs = require("fs");
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"),
+  );
+  for (const cmd of manifest.contributes.commands) {
+    if (typeof cmd.icon === "object") {
+      for (const p of [cmd.icon.light, cmd.icon.dark]) {
+        assert.ok(
+          fs.existsSync(path.join(__dirname, "..", p)),
+          `icon file exists: ${p}`,
+        );
+      }
+    }
+  }
+
+  // 11. manifest: OpenCode button is contributed to the terminal panel title
+  const panelItem = (manifest.contributes.menus["view/title"] || []).find(
+    (i) => i.command === "opencodeTerminal.open",
+  );
+  assert.ok(panelItem, "view/title entry present");
+  assert.strictEqual(panelItem.when, "view == terminal", "gated to terminal view");
+  assert.strictEqual(panelItem.group, "navigation", "rendered as an icon button");
+  assert.strictEqual(
+    manifest.contributes.commands.find((c) => c.command === "opencodeTerminal.open").icon
+      .light,
+    "images/button-dark.svg",
+    "codicon $(add) replaced by opencode mark",
+  );
 
   console.log("OK: all smoke tests passed");
 })().catch((err) => {

@@ -12,6 +12,11 @@ function activate(context) {
       name: TERMINAL_NAME,
       location: { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
       env: { OPENCODE_CALLER: "vscode" },
+      // OpenCode mark on the terminal tab, matching the official extension.
+      iconPath: {
+        light: vscode.Uri.file(context.asAbsolutePath("images/button-dark.svg")),
+        dark: vscode.Uri.file(context.asAbsolutePath("images/button-light.svg")),
+      },
     });
     return terminal;
   };
