@@ -66,7 +66,8 @@ const fakeVscode = {
     getWorkspaceFolder() {
       return fakeVscode.workspace._folder;
     },
-    asRelativePath() {
+    asRelativePath(_uri, includeWorkspaceFolder) {
+      fakeVscode.workspace._lastIncludeFolder = includeWorkspaceFolder;
       return fakeVscode.workspace._relPath;
     },
   },
@@ -80,6 +81,7 @@ const fakeVscode = {
 
 fakeVscode.workspace._folder = { uri: "file:///proj" };
 fakeVscode.workspace._relPath = "src/app.ts";
+fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
 
 // redirect require("vscode") to our fake
 const originalResolve = Module._resolveFilename;
@@ -257,6 +259,66 @@ const editor = (relPath, selection) => {
       .light,
     "images/button-dark.svg",
     "codicon $(add) replaced by opencode mark",
+  );
+
+  // 12. manifest: hardened for untrusted and virtual workspaces
+  assert.strictEqual(
+    manifest.capabilities.untrustedWorkspaces.supported,
+    false,
+    "declared untrusted-workspace support",
+  );
+  assert.strictEqual(
+    manifest.capabilities.virtualWorkspaces,
+    false,
+    "virtual workspaces disabled",
+  );
+  assert.strictEqual(manifest.scripts.test, "node test/smoke.js", "test script wired");
+
+  // 13. keybindings are deduplicated: key is cross-platform, only mac overrides
+  for (const kb of manifest.contributes.keybindings) {
+    assert.ok(!("win" in kb) && !("linux" in kb), "no redundant win/linux keys");
+    assert.ok(kb.key && kb.mac, "has cross-platform key plus mac override");
+    assert.ok(!kb.key.startsWith("cmd+"), "default key is not macOS-only");
+  }
+
+  // 14. single-root workspace: path is not prefixed with the folder name
+  fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+  fakeVscode.workspace.settings.autoIncludeFile = true;
+  fakeVscode.window.activeTextEditor = editor("src/app.ts");
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.activeTerminal = undefined;
+  await calls.registered["opencodeTerminal.open"]();
+  assert.strictEqual(
+    fakeVscode.workspace._lastIncludeFolder,
+    false,
+    "single-root: no workspace folder prefix",
+  );
+
+  // 15. multi-root workspace: prefix the folder name
+  fakeVscode.workspace.workspaceFolders = [
+    { uri: "file:///proj" },
+    { uri: "file:///other" },
+  ];
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.activeTerminal = undefined;
+  await calls.registered["opencodeTerminal.open"]();
+  assert.strictEqual(
+    fakeVscode.workspace._lastIncludeFolder,
+    true,
+    "multi-root: include workspace folder",
+  );
+
+  // 16. a terminal whose process exited is not reused
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.activeTerminal = undefined;
+  const dead = fakeVscode.window.createTerminal({ name: "opencode" });
+  dead.exitStatus = { code: 0 };
+  const beforeDead = calls.createdTerminals.length;
+  await calls.registered["opencodeTerminal.open"]();
+  assert.strictEqual(
+    calls.createdTerminals.length,
+    beforeDead + 1,
+    "dead terminal replaced, not focused",
   );
 
   console.log("OK: all smoke tests passed");

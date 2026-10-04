@@ -4,6 +4,9 @@ const vscode = require("vscode");
 
 const TERMINAL_NAME = "opencode";
 
+/** Timers for delayed sends, so they can be cancelled on deactivate. */
+const pendingTimers = new Set();
+
 function activate(context) {
   const config = () => vscode.workspace.getConfiguration("opencode");
 
@@ -33,11 +36,13 @@ function activate(context) {
       terminal.sendText(text, false);
       return;
     }
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      pendingTimers.delete(timer);
       if (!terminal.exitStatus) {
         terminal.sendText(text, false);
       }
     }, delay);
+    pendingTimers.add(timer);
   };
 
   const getFileRef = () => {
@@ -50,7 +55,10 @@ function activate(context) {
     const folder = vscode.workspace.getWorkspaceFolder(document.uri);
     if (!folder) return undefined;
 
-    const ref = `@${vscode.workspace.asRelativePath(document.uri)}`;
+    // Prefix with the workspace folder name only in multi-root workspaces,
+    // where a bare relative path would be ambiguous.
+    const multiRoot = (vscode.workspace.workspaceFolders?.length ?? 0) > 1;
+    const ref = `@${vscode.workspace.asRelativePath(document.uri, multiRoot)}`;
     const selection = editor.selection;
     if (selection.isEmpty) return ref;
 
@@ -68,9 +76,13 @@ function activate(context) {
     }
   };
 
+  /** Reusable only while the terminal exists and its process is still running. */
+  const isLiveTerminal = (terminal) =>
+    Boolean(terminal) && terminal.name === TERMINAL_NAME && !terminal.exitStatus;
+
   /** Open OpenCode, reusing the existing terminal when possible. */
   const open = async () => {
-    const existing = vscode.window.terminals.find((t) => t.name === TERMINAL_NAME);
+    const existing = vscode.window.terminals.find(isLiveTerminal);
     if (existing) {
       existing.show();
       return;
@@ -109,10 +121,9 @@ function activate(context) {
       return;
     }
 
-    let terminal =
-      vscode.window.activeTerminal?.name === TERMINAL_NAME
-        ? vscode.window.activeTerminal
-        : vscode.window.terminals.find((t) => t.name === TERMINAL_NAME);
+    let terminal = isLiveTerminal(vscode.window.activeTerminal)
+      ? vscode.window.activeTerminal
+      : vscode.window.terminals.find(isLiveTerminal);
 
     if (!terminal) {
       terminal = createTerminal();
@@ -133,6 +144,11 @@ function activate(context) {
   );
 }
 
-function deactivate() {}
+function deactivate() {
+  for (const timer of pendingTimers) {
+    clearTimeout(timer);
+  }
+  pendingTimers.clear();
+}
 
 module.exports = { activate, deactivate };
