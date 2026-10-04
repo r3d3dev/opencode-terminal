@@ -3,10 +3,10 @@
   <rect x="142" y="85" width="228" height="76" fill="#E4E4EC"/>
   <rect x="142" y="161" width="228" height="266" fill="#C7CADD"/>
   <g fill="#1A1A28">
-    <rect x="180" y="199" width="38" height="38"/>
-    <rect x="218" y="237" width="38" height="38"/>
-    <rect x="180" y="275" width="38" height="38"/>
-    <rect x="180" y="351" width="38" height="38"/>
-    <rect x="218" y="351" width="38" height="38"/>
+    <rect x="180" y="237" width="38" height="38"/>
+    <rect x="218" y="275" width="38" height="38"/>
+    <rect x="180" y="313" width="38" height="38"/>
+    <rect x="256" y="313" width="38" height="38"/>
+    <rect x="294" y="313" width="38" height="38"/>
   </g>
 </svg>

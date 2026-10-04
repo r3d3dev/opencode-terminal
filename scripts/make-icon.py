@@ -24,7 +24,7 @@ U = 28
 OW, OH = 10 * U, 13 * U
 OX, OY = (GRID - OW) // 2, (GRID - OH) // 2  # centre the mark inside the icon
 CX, CY = OX + 2 * U, OY + 2 * U  # counter
-CELLS = [(1, 3), (2, 4), (1, 5), (1, 7), (2, 7)]
+CELLS = [(1, 4), (2, 5), (1, 6), (3, 6), (4, 6)]
 RADIUS = 104
 
 
