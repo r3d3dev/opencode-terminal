@@ -11,12 +11,15 @@ removed `opencode --port` flag — see
 and the unmerged fix [PR #49084](https://github.com/anomalyco/opencode/pull/49084)).
 
 It is the terminal part only: no sidebar, no HTTP API, no bundled CLI — it just
-launches `opencode` in a terminal and wires up `@file` references. Community
-build, not affiliated with the OpenCode project.
+launches `opencode` in a terminal and wires up `@file` references. Because it
+never passes version-specific flags, it behaves the same with CLI v1 and v2; if
+you keep two installs side by side, point `opencode.command` at the other binary.
+Community build, not affiliated with the OpenCode project.
 
 ## Requirements
 
-- [OpenCode CLI v2](https://opencode.ai) (`opencode`) available on `PATH`.
+- [OpenCode CLI](https://opencode.ai) (`opencode`) available on `PATH` — v1 or v2;
+  the extension uses no version-specific flags or HTTP API.
 - VS Code 1.94.0 or newer.
 
 ## Commands & keybindings

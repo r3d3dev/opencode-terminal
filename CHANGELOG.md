@@ -23,3 +23,5 @@
   longer reused.
 - Replaced the copied OpenCode logo with an original mark (periwinkle terminal
   badge, inset band, three-dot prompt) and regenerated `images/icon.png`.
+- Clarified that the extension is not tied to a CLI version (works with v1 and
+  v2); added the `opencode v1` keyword.
