@@ -13,3 +13,5 @@
   (`opencode.autoIncludeFile`, `opencode.fileRefDelay`).
 - Configurable launch command (`opencode.command`).
 - Compatible with OpenCode CLI v2 (no `--port` flag, no legacy HTTP endpoints).
+- Marketplace listing tuned for the "opencode v2" / "opencode terminal" queries
+  (`displayName`, `description`, `keywords`, `AI` category).

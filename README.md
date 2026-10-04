@@ -1,14 +1,18 @@
-# OpenCode Terminal
+# OpenCode v2 Terminal
 
-VS Code extension that opens the [OpenCode](https://opencode.ai) agent in the
+VS Code extension that opens the [OpenCode](https://opencode.ai) CLI agent in the
 integrated terminal with one shortcut and inserts `@file` references from the
 editor.
 
-A small, dependency-free replacement for the terminal part of the official
-`sst-dev.opencode` extension, which stopped working with OpenCode CLI v2
-(it still invokes the removed `opencode --port` flag — see
+A small, dependency-free **alternative to the official `sst-dev.opencode`
+extension**, which stopped working with OpenCode CLI v2 (it still invokes the
+removed `opencode --port` flag — see
 [anomalyco/opencode#49085](https://github.com/anomalyco/opencode/issues/49085)
 and the unmerged fix [PR #49084](https://github.com/anomalyco/opencode/pull/49084)).
+
+It is the terminal part only: no sidebar, no HTTP API, no bundled CLI — it just
+launches `opencode` in a terminal and wires up `@file` references. Community
+build, not affiliated with the OpenCode project.
 
 ## Requirements
 
@@ -48,7 +52,11 @@ terminal title actions (`+`, split, kill).
 | `opencode.autoIncludeFile` | `true` | Automatically append the active `@file` reference when opening a **new** terminal. |
 | `opencode.fileRefDelay` | `1000` | Delay (ms) before the automatic reference is sent to a fresh terminal. Increase it if your shell startup is slow. |
 
-## Install (local build)
+## Install
+
+From the Marketplace: search **OpenCode v2 Terminal** (id `r3d3dev.opencode-terminal`).
+
+Local build:
 
 ```bash
 npm install

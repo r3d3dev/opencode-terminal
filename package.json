@@ -1,7 +1,7 @@
 {
   "name": "opencode-terminal",
-  "displayName": "OpenCode Terminal",
-  "description": "Open the OpenCode agent (opencode CLI) in the VS Code integrated terminal with one shortcut and insert @file references from the editor.",
+  "displayName": "OpenCode v2 Terminal",
+  "description": "OpenCode v2 terminal launcher for VS Code: open the OpenCode CLI agent in the integrated terminal with one shortcut and insert @file references from the editor. A dependency-free alternative to the official sst-dev.opencode extension, which stopped working with OpenCode CLI v2.",
   "version": "0.1.0",
   "publisher": "r3d3dev",
   "license": "MIT",
@@ -19,14 +19,40 @@
     "vscode": "^1.94.0"
   },
   "categories": [
+    "AI",
     "Other"
   ],
   "keywords": [
     "opencode",
-    "ai",
-    "agent",
+    "opencode v2",
+    "opencode cli",
+    "opencode terminal",
+    "opencode vscode",
+    "opencode extension",
+    "opencode agent",
+    "opencode alternative",
+    "opencode ai",
+    "v2",
     "terminal",
-    "cli"
+    "integrated terminal",
+    "vscode terminal",
+    "cli",
+    "cli agent",
+    "ai",
+    "ai agent",
+    "coding agent",
+    "agent",
+    "keybinding",
+    "keybindings",
+    "shortcut",
+    "at-file",
+    "file reference",
+    "tui",
+    "replacement",
+    "vscode extension",
+    "opencode fix",
+    "@file",
+    "agent terminal"
   ],
   "extensionKind": [
     "workspace"
@@ -110,7 +136,7 @@
       ]
     },
     "configuration": {
-      "title": "OpenCode Terminal",
+      "title": "OpenCode v2 Terminal",
       "properties": {
         "opencode.command": {
           "type": "string",
