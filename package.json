@@ -15,8 +15,15 @@
   "bugs": {
     "url": "https://github.com/r3d3dev/opencode-terminal/issues"
   },
+  "qna": "https://github.com/r3d3dev/opencode-terminal/issues",
   "engines": {
     "vscode": "^1.94.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": false
   },
   "categories": [
     "AI",
@@ -58,6 +65,10 @@
     "workspace"
   ],
   "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#131010",
+    "theme": "dark"
+  },
   "main": "./extension.js",
   "contributes": {
     "commands": [
@@ -89,24 +100,18 @@
     "keybindings": [
       {
         "command": "opencodeTerminal.open",
-        "key": "cmd+escape",
-        "mac": "cmd+escape",
-        "win": "ctrl+escape",
-        "linux": "ctrl+escape"
+        "key": "ctrl+escape",
+        "mac": "cmd+escape"
       },
       {
         "command": "opencodeTerminal.openNew",
-        "key": "cmd+shift+escape",
-        "mac": "cmd+shift+escape",
-        "win": "ctrl+shift+escape",
-        "linux": "ctrl+shift+escape"
+        "key": "ctrl+shift+escape",
+        "mac": "cmd+shift+escape"
       },
       {
         "command": "opencodeTerminal.insertFileRef",
-        "key": "cmd+alt+k",
-        "mac": "cmd+alt+k",
-        "win": "ctrl+alt+k",
-        "linux": "ctrl+alt+k"
+        "key": "ctrl+alt+k",
+        "mac": "cmd+alt+k"
       }
     ],
     "menus": {
@@ -158,7 +163,8 @@
     }
   },
   "scripts": {
-    "package": "vsce package"
+    "package": "vsce package",
+    "test": "node test/smoke.js"
   },
   "devDependencies": {
     "@vscode/vsce": "^4.0.0"
