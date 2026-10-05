@@ -72,7 +72,28 @@ terminal title actions (`+`, split, kill).
 
 From the Marketplace: search **OpenCode v2 Terminal** (id `r3d3dev.opencode-terminal-cli`).
 
-Local build:
+### Without the Marketplace (`.vsix`)
+
+Install straight from the packaged file — no Marketplace account needed. Handy
+for testing a build or installing while a release is still pending review.
+
+VS Code UI: open the Extensions view → the `⋯` menu in its title bar →
+**Install from VSIX…** → pick the file.
+
+Command line:
+
+```bash
+code --install-extension opencode-terminal-cli-0.1.0.vsix
+```
+
+If `code` is not on your `PATH`, run **Shell Command: Install 'code' command in
+PATH** from the Command Palette (`Cmd/Ctrl+Shift+P`) first, or call the CLI by
+its absolute path.
+
+Do not install this alongside the official `sst-dev.opencode` extension — the
+keybindings are intentionally the same and will conflict.
+
+### From source
 
 ```bash
 npm install
