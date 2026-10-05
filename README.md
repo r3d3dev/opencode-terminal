@@ -4,6 +4,17 @@ VS Code extension that opens the [OpenCode](https://opencode.ai) CLI agent in th
 integrated terminal with one shortcut and inserts `@file` references from the
 editor.
 
+You do not need an extension to use OpenCode in the IDE: just open any terminal
+in VS Code (`Ctrl`/`Cmd` + `` ` ``) and type `opencode`:
+
+```bash
+$ opencode
+```
+
+If you prefer keeping it as an extension — a dedicated button, a keyboard
+shortcut, and `@file` references from the active editor — that is exactly what
+this one is.
+
 A small, dependency-free **alternative to the official `sst-dev.opencode`
 extension**, which stopped working with OpenCode CLI v2 (it still invokes the
 removed `opencode --port` flag — see
