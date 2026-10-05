@@ -1,12 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-  <path fill-rule="evenodd" clip-rule="evenodd" d="M446 9H66V503H446V9ZM370 85H142V427H370V85Z" fill="#5A61A0"/>
-  <rect x="142" y="85" width="228" height="114" fill="#E4E4EC"/>
-  <rect x="142" y="199" width="228" height="228" fill="#C7CADD"/>
+  <rect x="12" y="12" width="488" height="488" rx="108" fill="#F2F2F7"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M432 56H80V456H432V56ZM376 112H136V400H376V112Z" fill="#5A61A0"/>
+  <rect x="136" y="112" width="240" height="84" fill="#B9BDD2"/>
+  <rect x="136" y="196" width="240" height="204" fill="#D8DAE8"/>
   <g fill="#1A1A28">
-    <rect x="180" y="237" width="38" height="38"/>
-    <rect x="218" y="275" width="38" height="38"/>
-    <rect x="180" y="313" width="38" height="38"/>
-    <rect x="256" y="351" width="38" height="38"/>
-    <rect x="294" y="351" width="38" height="38"/>
+    <rect x="164" y="224" width="28" height="28"/>
+    <rect x="192" y="252" width="28" height="28"/>
+    <rect x="164" y="280" width="28" height="28"/>
+    <rect x="220" y="308" width="28" height="28"/>
+    <rect x="248" y="308" width="28" height="28"/>
   </g>
 </svg>
