@@ -129,7 +129,7 @@ F5                # "Run Extension" — launches an Extension Development Host
 
 ## Publishing
 
-See `PUBLISHING.md` in the repository for the release checklist.
+See [PUBLISHING.md](PUBLISHING.md) for the release checklist.
 
 ## License
 

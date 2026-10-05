@@ -8,6 +8,14 @@
   "author": {
     "name": "r3d3dev"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/r3d3dev/opencode-terminal"
+  },
+  "bugs": {
+    "url": "https://github.com/r3d3dev/opencode-terminal/issues"
+  },
+  "qna": "https://github.com/r3d3dev/opencode-terminal/issues",
   "engines": {
     "vscode": "^1.94.0"
   },
@@ -167,7 +175,7 @@
     }
   },
   "scripts": {
-    "package": "vsce package --allow-missing-repository",
+    "package": "vsce package",
     "test": "node test/smoke.js"
   },
   "devDependencies": {
