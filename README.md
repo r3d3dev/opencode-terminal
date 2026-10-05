@@ -74,8 +74,10 @@ From the Marketplace: search **OpenCode v2 Terminal** (id `r3d3dev.opencode-term
 
 ### Without the Marketplace (`.vsix`)
 
-Install straight from the packaged file — no Marketplace account needed. Handy
-for testing a build or installing while a release is still pending review.
+Download the latest `.vsix` from
+[**Releases**](https://github.com/r3d3dev/opencode-terminal/releases/latest) and
+install it straight from the file — no Marketplace account needed. Handy for
+testing a build or installing while a release is still pending review.
 
 VS Code UI: open the Extensions view → the `⋯` menu in its title bar →
 **Install from VSIX…** → pick the file.
@@ -83,7 +85,7 @@ VS Code UI: open the Extensions view → the `⋯` menu in its title bar →
 Command line:
 
 ```bash
-code --install-extension opencode-terminal-cli-0.1.0.vsix
+code --install-extension opencode-terminal-cli-0.1.1.vsix
 ```
 
 If `code` is not on your `PATH`, run **Shell Command: Install 'code' command in

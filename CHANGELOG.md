@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 — 2026-10-05
+
+- Panel icons (editor title bar, terminal title bar, terminal tab) now carry a
+  solid rounded background, so they read at full icon size instead of looking
+  small next to VS Code's built-in actions.
+- README: install-without-Marketplace section with the release download link.
+
 ## 0.1.0 — 2026-10-04
 
 - Initial release.
