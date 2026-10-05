@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2 — 2026-10-05
+
+- Panel icons: square full-bleed tile (no outer rounding) with more padding
+  around the O mark, so the badge reads at full size in the title bar.
+- Light-theme icon keeps the dark-on-light contrast: pale panel, black prompt.
+- README: intro now notes that you can simply run `opencode` in the VS Code
+  terminal, and that this extension is for those who want a button, a shortcut
+  and `@file` references.
+- Added `npm run build` (smoke test + package).
+
 ## 0.1.1 — 2026-10-05
 
 - Panel icons (editor title bar, terminal title bar, terminal tab) now carry a

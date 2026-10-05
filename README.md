@@ -5,11 +5,7 @@ integrated terminal with one shortcut and inserts `@file` references from the
 editor.
 
 You do not need an extension to use OpenCode in the IDE: just open any terminal
-in VS Code (`Ctrl`/`Cmd` + `` ` ``) and type `opencode`:
-
-```bash
-$ opencode
-```
+in VS Code (`Ctrl`/`Cmd` + `` ` ``) and type `opencode`.
 
 If you prefer keeping it as an extension — a dedicated button, a keyboard
 shortcut, and `@file` references from the active editor — that is exactly what
@@ -96,7 +92,7 @@ VS Code UI: open the Extensions view → the `⋯` menu in its title bar →
 Command line:
 
 ```bash
-code --install-extension opencode-terminal-cli-0.1.1.vsix
+code --install-extension opencode-terminal-cli-0.1.2.vsix
 ```
 
 If `code` is not on your `PATH`, run **Shell Command: Install 'code' command in
@@ -111,7 +107,7 @@ keybindings are intentionally the same and will conflict.
 ```bash
 npm install
 npm run package
-code --install-extension opencode-terminal-cli-0.1.0.vsix
+code --install-extension opencode-terminal-cli-0.1.2.vsix
 ```
 
 ## OpenCode CLI v1 (`--port`)
