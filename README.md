@@ -15,7 +15,10 @@ A small, dependency-free **alternative to the official `sst-dev.opencode`
 extension**, which stopped working with OpenCode CLI v2 (it still invokes the
 removed `opencode --port` flag — see
 [anomalyco/opencode#49085](https://github.com/anomalyco/opencode/issues/49085)
-and the unmerged fix [PR #49084](https://github.com/anomalyco/opencode/pull/49084)).
+and the unmerged fix [PR #49084](https://github.com/anomalyco/opencode/pull/49084);
+the same symptom is reported in
+[#50530](https://github.com/anomalyco/opencode/issues/50530) and
+[#49992](https://github.com/anomalyco/opencode/issues/49992)).
 
 It is the terminal part only: no sidebar, no HTTP API, no bundled CLI — it just
 launches `opencode` in a terminal and wires up `@file` references. Because it
@@ -77,38 +80,19 @@ terminal title actions (`+`, split, kill).
 
 ## Install
 
-From the Marketplace: search **OpenCode v2 Terminal** (id `r3d3dev.opencode-terminal-cli`).
-
-### Without the Marketplace (`.vsix`)
-
-Download the latest `.vsix` from
-[**Releases**](https://github.com/r3d3dev/opencode-terminal/releases/latest) and
-install it straight from the file — no Marketplace account needed. Handy for
-testing a build or installing while a release is still pending review.
-
-VS Code UI: open the Extensions view → the `⋯` menu in its title bar →
-**Install from VSIX…** → pick the file.
-
-Command line:
-
 ```bash
-code --install-extension opencode-terminal-cli-0.1.2.vsix
+code --install-extension r3d3dev.opencode-terminal-cli
 ```
 
-If `code` is not on your `PATH`, run **Shell Command: Install 'code' command in
-PATH** from the Command Palette (`Cmd/Ctrl+Shift+P`) first, or call the CLI by
-its absolute path.
+Install from the **VS Code Marketplace** (search *OpenCode v2 Terminal*) or from
+**Open VSX** for VSCodium, code-oss and Gitpod. Every path — both marketplaces, a
+`.vsix` from
+[Releases](https://github.com/r3d3dev/opencode-terminal/releases/latest), and
+building from source — with the details for each, is in
+**[INSTALLATION.md](INSTALLATION.md)**.
 
 Do not install this alongside the official `sst-dev.opencode` extension — the
 keybindings are intentionally the same and will conflict.
-
-### From source
-
-```bash
-npm install
-npm run package
-code --install-extension opencode-terminal-cli-0.1.2.vsix
-```
 
 ## OpenCode CLI v1 (`--port`)
 
@@ -135,6 +119,12 @@ the reference, so the setting cannot break the usual workflow.
 code .            # open the project
 F5                # "Run Extension" — launches an Extension Development Host
 ```
+
+## Feedback and contributions
+
+Issues and suggestions are welcome at
+[github.com/r3d3dev/opencode-terminal/issues](https://github.com/r3d3dev/opencode-terminal/issues) —
+we review them quickly and are glad to take small fixes and pull requests.
 
 ## License
 

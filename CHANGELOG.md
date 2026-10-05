@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.4 — 2026-10-05
+
+- `INSTALLATION.md`: every install path in one place — VS Code Marketplace,
+  Open VSX (VSCodium, code-oss, Gitpod), a `.vsix` from Releases, and building
+  from source.
+- README: the Install section is slimmed down and points at `INSTALLATION.md`;
+  added the exact-symptom upstream reports
+  ([#50530](https://github.com/anomalyco/opencode/issues/50530),
+  [#49992](https://github.com/anomalyco/opencode/issues/49992)) and an
+  invitation to file issues and pull requests.
+
 ## 0.1.3 — 2026-10-05
 
 - Panel icons: the O frame is twice as thick (4 grid blocks) on both the light
