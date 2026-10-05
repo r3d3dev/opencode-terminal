@@ -70,14 +70,14 @@ terminal title actions (`+`, split, kill).
 
 ## Install
 
-From the Marketplace: search **OpenCode v2 Terminal** (id `r3d3dev.opencode-terminal`).
+From the Marketplace: search **OpenCode v2 Terminal** (id `r3d3dev.opencode-terminal-cli`).
 
 Local build:
 
 ```bash
 npm install
 npm run package
-code --install-extension opencode-terminal-0.1.0.vsix
+code --install-extension opencode-terminal-cli-0.1.0.vsix
 ```
 
 ## OpenCode CLI v1 (`--port`)
@@ -108,7 +108,7 @@ F5                # "Run Extension" — launches an Extension Development Host
 
 ## Publishing
 
-See [PUBLISHING.md](PUBLISHING.md) for the full GitHub + Marketplace checklist.
+See `PUBLISHING.md` in the repository for the release checklist.
 
 ## License
 

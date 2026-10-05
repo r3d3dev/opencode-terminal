@@ -1,5 +1,5 @@
 {
-  "name": "opencode-terminal",
+  "name": "opencode-terminal-cli",
   "displayName": "OpenCode v2 Terminal",
   "description": "OpenCode terminal launcher for VS Code: open the OpenCode CLI agent in the integrated terminal with one shortcut and insert @file references from the editor. A dependency-free alternative to the official sst-dev.opencode extension, which stopped working with OpenCode CLI v2. Works with CLI v1 and v2.",
   "version": "0.1.0",
@@ -8,14 +8,6 @@
   "author": {
     "name": "r3d3dev"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/r3d3dev/opencode-terminal"
-  },
-  "bugs": {
-    "url": "https://github.com/r3d3dev/opencode-terminal/issues"
-  },
-  "qna": "https://github.com/r3d3dev/opencode-terminal/issues",
   "engines": {
     "vscode": "^1.94.0"
   },
@@ -176,7 +168,7 @@
     }
   },
   "scripts": {
-    "package": "vsce package",
+    "package": "vsce package --allow-missing-repository",
     "test": "node test/smoke.js"
   },
   "devDependencies": {
