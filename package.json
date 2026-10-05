@@ -175,6 +175,7 @@
     }
   },
   "scripts": {
+    "build": "npm test && npm run package",
     "package": "vsce package",
     "test": "node test/smoke.js"
   },
