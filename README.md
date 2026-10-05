@@ -127,10 +127,6 @@ code .            # open the project
 F5                # "Run Extension" — launches an Extension Development Host
 ```
 
-## Publishing
-
-See [PUBLISHING.md](PUBLISHING.md) for the release checklist.
-
 ## License
 
 MIT

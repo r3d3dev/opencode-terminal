@@ -3,7 +3,6 @@
 .gitignore
 *.vsix
 node_modules/**
-PUBLISHING.md
 scripts/**
 test/**
 package-lock.json
