@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 — 2026-10-05
+
+- Panel icons: the O frame is twice as thick (4 grid blocks) on both the light
+  and the dark button, so the mark holds up at 16 px.
+- Retuned frame tints for contrast: dark-theme button `#E1E3F7` on the dark
+  tile, light-theme button `#2E3568` on the pale tile.
+
 ## 0.1.2 — 2026-10-05
 
 - Panel icons: square full-bleed tile (no outer rounding) with more padding
