@@ -94,8 +94,12 @@
       },
       {
         "command": "opencodeTerminal.insertFileRef",
-        "title": "Insert @-File Reference",
-        "category": "OpenCode",
+        "title": "Send to OpenCode",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "opencodeTerminal.addFiles",
+        "title": "Send to OpenCode",
         "icon": "$(file-code)"
       }
     ],
@@ -106,14 +110,24 @@
         "mac": "cmd+escape"
       },
       {
+        "command": "opencodeTerminal.open",
+        "key": "ctrl+escape",
+        "mac": "cmd+escape"
+      },
+      {
+        "command": "opencodeTerminal.open",
+        "key": "ctrl+alt+o",
+        "mac": "ctrl+cmd+o"
+      },
+      {
         "command": "opencodeTerminal.openNew",
         "key": "ctrl+shift+escape",
         "mac": "cmd+shift+escape"
       },
       {
         "command": "opencodeTerminal.openNew",
-        "key": "ctrl+alt+o",
-        "mac": "ctrl+cmd+o"
+        "key": "ctrl+alt+n",
+        "mac": "ctrl+cmd+n"
       },
       {
         "command": "opencodeTerminal.insertFileRef",
@@ -127,11 +141,10 @@
         "when": "editorTextFocus"
       },
       {
-        "command": "opencodeTerminal.insertFileRef",
+        "command": "opencodeTerminal.addFiles",
         "key": "ctrl+alt+p",
         "mac": "ctrl+cmd+p",
-        "when": "foldersViewVisible && filesExplorerFocus && !inputFocus",
-        "args": "explorer"
+        "when": "foldersViewVisible && filesExplorerFocus && !inputFocus"
       }
     ],
     "menus": {
@@ -148,9 +161,15 @@
           "when": "view == terminal"
         }
       ],
-      "explorer/context": [
+      "editor/context": [
         {
           "command": "opencodeTerminal.insertFileRef",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "opencodeTerminal.addFiles",
           "group": "navigation"
         }
       ],
@@ -163,6 +182,10 @@
         },
         {
           "command": "opencodeTerminal.insertFileRef"
+        },
+        {
+          "command": "opencodeTerminal.addFiles",
+          "when": "false"
         }
       ]
     },

@@ -463,31 +463,8 @@ function activate(context) {
     return getFileRef();
   };
 
-  /**
-   * Put references, or the selected text, into the OpenCode terminal. The files
-   * come from the Explorer context menu (which passes them as arguments), from
-   * the Explorer selection, or from the active editor. Falls back to opening a
-   * terminal when none exists yet.
-   */
-  const insertFileRef = async (...args) => {
-    const flat = args.flat().filter(Boolean);
-    const uris = flat.filter((arg) => typeof arg === "object" && arg.fsPath);
-    const asked = flat.find((arg) => arg === "explorer" || arg === "editor");
-
-    const payloads = [];
-    if (uris.length) {
-      payloads.push(...uris.map((uri) => pathToRef(uri.fsPath)).filter(Boolean));
-    } else if (asked === "editor" || (!asked && vscode.window.activeTextEditor)) {
-      const payload = editorPayload();
-      if (payload) {
-        payloads.push(payload);
-      }
-    } else {
-      payloads.push(...(await explorerRefs()));
-    }
-
-    // The Explorer menu passes both the clicked URI and the whole selection, so
-    // the same file can arrive twice.
+  /** Hand the payloads to the terminal, opening one when there is none. */
+  const deliverPayloads = async (payloads) => {
     const unique = [...new Set(payloads)];
     if (!unique.length) {
       vscode.window.showInformationMessage(
@@ -501,10 +478,36 @@ function activate(context) {
     await deliverRef(terminal, unique.join(" "), port, fresh);
   };
 
+  /**
+   * Files from the Explorer: its context menu hands them over as arguments,
+   * otherwise they are taken from the Explorer selection. Duplicates are dropped
+   * because the menu passes both the clicked file and the whole selection.
+   */
+  const addExplorerFiles = async (...args) => {
+    const uris = args
+      .flat()
+      .filter((arg) => arg && typeof arg === "object" && arg.fsPath);
+    const payloads = uris.length
+      ? uris.map((uri) => pathToRef(uri.fsPath)).filter(Boolean)
+      : await explorerRefs();
+    await deliverPayloads(payloads);
+  };
+
+  /**
+   * What goes to the terminal from the editor: the selected text when something
+   * is selected, an `@file` reference otherwise. Arguments are ignored — the
+   * editor menu passes the resource URI, and the editor path does not need it.
+   */
+  const insertFileRef = async () => {
+    const payload = vscode.window.activeTextEditor ? editorPayload() : undefined;
+    await deliverPayloads(payload ? [payload] : []);
+  };
+
   context.subscriptions.push(
     vscode.commands.registerCommand("opencodeTerminal.open", open),
     vscode.commands.registerCommand("opencodeTerminal.openNew", openNew),
     vscode.commands.registerCommand("opencodeTerminal.insertFileRef", insertFileRef),
+    vscode.commands.registerCommand("opencodeTerminal.addFiles", addExplorerFiles),
     vscode.window.onDidCloseTerminal((terminal) => {
       // Ran out of OpenCode terminals: the next window should not bring one up.
       if (ours.delete(terminal) && ours.size === 0) {

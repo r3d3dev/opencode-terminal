@@ -36,17 +36,18 @@ Community build, not affiliated with the OpenCode project.
 
 | Command | macOS | Windows / Linux | Description |
 | --- | --- | --- | --- |
-| **OpenCode: Open in Terminal** | `Cmd+Esc` | `Ctrl+Esc` | Open OpenCode in a group of its own beside the editor; reuses an existing `opencode` terminal. |
-| **OpenCode: Open in New Terminal** | `Cmd+Shift+Esc`, `Cmd+Ctrl+O` | `Ctrl+Shift+Esc`, `Ctrl+Alt+O` | Always start a fresh terminal with OpenCode. |
-| **OpenCode: Insert @-File Reference** | `Cmd+Alt+K`, `Cmd+Ctrl+P` | `Ctrl+Alt+K`, `Ctrl+Alt+P` | Send file references to the OpenCode terminal — see *Sending files* below. Opens a terminal first if none exists. |
+| **OpenCode: Open in Terminal** | `Cmd+Esc`, `Cmd+Ctrl+O` | `Ctrl+Esc`, `Ctrl+Alt+O` | Open OpenCode in a group of its own beside the editor; reuses an existing `opencode` terminal. |
+| **OpenCode: Open in New Terminal** | `Cmd+Shift+Esc`, `Cmd+Ctrl+N` | `Ctrl+Shift+Esc`, `Ctrl+Alt+N` | Always start a fresh terminal with OpenCode. |
+| **Send to OpenCode** | `Cmd+Alt+K`, `Cmd+Ctrl+P` | `Ctrl+Alt+K`, `Ctrl+Alt+P` | Send the selected text, or an `@file` reference — see *Sending files or text* below. |
 
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
 
 ## Sending files or text to OpenCode
 
-`Cmd+Alt+K` (`Ctrl+Alt+K`) and `Cmd+Ctrl+P` (`Ctrl+Alt+P`) are the same command:
-it looks at where the focus is and sends what is selected there.
+**Send to OpenCode** (`Cmd+Ctrl+P` / `Ctrl+Alt+P`) looks at where the focus is and
+sends what is selected there. The same entry sits in both right-click menus — the
+editor's and the Explorer's — so it can be reached with the mouse too.
 
 | Focus | What is sent |
 | --- | --- |

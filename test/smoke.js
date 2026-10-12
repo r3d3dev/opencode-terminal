@@ -160,16 +160,17 @@ assert.ok(typeof ext.deactivate === "function", "deactivate exported");
 assert.deepStrictEqual(
   Object.keys(calls.registered).sort(),
   [
+    "opencodeTerminal.addFiles",
     "opencodeTerminal.insertFileRef",
     "opencodeTerminal.open",
     "opencodeTerminal.openNew",
   ],
-  "all three commands registered",
+  "all four commands registered",
 );
 assert.strictEqual(
   context.subscriptions.length,
-  4,
-  "subscriptions pushed (3 commands + terminal-close listener)",
+  5,
+  "subscriptions pushed (4 commands + terminal-close listener)",
 );
 
 const editor = (relPath, selection) => {
@@ -742,7 +743,7 @@ const editor = (relPath, selection) => {
   fakeVscode.window.terminals.length = 0;
   fakeVscode.workspace._explorerCopy = "/proj/src/a.ts\n/proj/src/b.ts";
   fakeVscode.env.clipboard._text = "the user's clipboard";
-  await calls.registered["opencodeTerminal.insertFileRef"]("explorer");
+  await calls.registered["opencodeTerminal.addFiles"]();
   const explorerTerminal = calls.createdTerminals[calls.createdTerminals.length - 1];
   assert.deepStrictEqual(
     explorerTerminal.sent.map((s) => s.text),
@@ -758,7 +759,7 @@ const editor = (relPath, selection) => {
   // 30. the Explorer context menu hands the selected URIs straight over
   fakeVscode.window.terminals.length = 0;
   fakeVscode.window.activeTerminal = undefined;
-  await calls.registered["opencodeTerminal.insertFileRef"](
+  await calls.registered["opencodeTerminal.addFiles"](
     { fsPath: "/proj/src/c.ts" },
     [{ fsPath: "/proj/src/c.ts" }, { fsPath: "/proj/src/d.ts" }],
   );
@@ -785,30 +786,53 @@ const editor = (relPath, selection) => {
     "the selected text is sent as one block",
   );
 
-  // 32. keybindings: an extra chord for openNew and ctrl+cmd+p in both contexts
+  // 32. keybindings: ctrl+cmd+o / ctrl+cmd+n, and ctrl+cmd+p in both contexts
   const chords = manifest.contributes.keybindings;
+  const openAlt = chords.find(
+    (k) => k.command === "opencodeTerminal.open" && k.mac === "ctrl+cmd+o",
+  );
+  assert.ok(openAlt, "ctrl+cmd+o opens the terminal");
+  assert.strictEqual(openAlt.key, "ctrl+alt+o", "cross-platform counterpart");
   const openNewAlt = chords.find(
-    (k) => k.command === "opencodeTerminal.openNew" && k.mac === "ctrl+cmd+o",
+    (k) => k.command === "opencodeTerminal.openNew" && k.mac === "ctrl+cmd+n",
   );
-  assert.ok(openNewAlt, "ctrl+cmd+o opens a new terminal");
-  assert.strictEqual(openNewAlt.key, "ctrl+alt+o", "cross-platform counterpart");
-  const refChords = chords.filter(
-    (k) => k.command === "opencodeTerminal.insertFileRef" && k.mac === "ctrl+cmd+p",
-  );
-  assert.strictEqual(refChords.length, 2, "ctrl+cmd+p is bound in both contexts");
-  assert.ok(
-    refChords.some((k) => k.when === "editorTextFocus"),
-    "the editor context is bound",
-  );
-  const explorerChord = refChords.find((k) => (k.when || "").includes("filesExplorerFocus"));
-  assert.ok(explorerChord, "the Explorer context is bound");
-  assert.strictEqual(explorerChord.args, "explorer", "the Explorer binding asks for the Explorer");
+  assert.ok(openNewAlt, "ctrl+cmd+n opens a new terminal");
+  assert.strictEqual(openNewAlt.key, "ctrl+alt+n", "cross-platform counterpart");
 
-  // 33. the Explorer right-click menu carries the command
+  const refChords = chords.filter((k) => k.mac === "ctrl+cmd+p");
+  assert.strictEqual(refChords.length, 2, "ctrl+cmd+p is bound in both contexts");
+  const editorChord = refChords.find((k) => k.command === "opencodeTerminal.insertFileRef");
+  assert.ok(editorChord, "the editor context uses the editor command");
+  assert.strictEqual(editorChord.when, "editorTextFocus", "editor focus gate");
+  const explorerChord = refChords.find((k) => k.command === "opencodeTerminal.addFiles");
+  assert.ok(explorerChord, "the Explorer context has its own command");
+  assert.ok(
+    (explorerChord.when || "").includes("filesExplorerFocus"),
+    "the Explorer focus gate",
+  );
+
+  // 33. both context menus carry the right command, and their titles match what
+  //     the menu shows
   const explorerMenuItem = (manifest.contributes.menus["explorer/context"] || []).find(
-    (i) => i.command === "opencodeTerminal.insertFileRef",
+    (i) => i.command === "opencodeTerminal.addFiles",
   );
   assert.ok(explorerMenuItem, "Explorer context menu entry present");
+  const editorMenuItem = (manifest.contributes.menus["editor/context"] || []).find(
+    (i) => i.command === "opencodeTerminal.insertFileRef",
+  );
+  assert.ok(editorMenuItem, "editor context menu entry present");
+  const titles = manifest.contributes.commands.map((c) => c.title);
+  assert.deepStrictEqual(
+    titles.filter((t) => t === "Send to OpenCode").length,
+    2,
+    "both menu commands are called Send to OpenCode",
+  );
+  assert.ok(
+    manifest.contributes.menus.commandPalette.some(
+      (i) => i.command === "opencodeTerminal.addFiles" && i.when === "false",
+    ),
+    "the Explorer-only command stays out of the palette",
+  );
 
   console.log("OK: all smoke tests passed");
 })().catch((err) => {
