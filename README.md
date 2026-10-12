@@ -62,6 +62,31 @@ VS Code does not expose the Explorer selection to extensions, so the keyboard
 path reads the paths back from the clipboard after asking VS Code to copy them,
 and puts the clipboard back as it was.
 
+## Switching agents (build / plan)
+
+In OpenCode CLI v2 the agent is switched with **`Shift+Tab`**. Plain `Tab` is not
+free: it accepts the prompt autocomplete (and completes the command in shell mode,
+`!`), so the CLI deliberately keeps the two apart. Up to v1 it was the other way
+round — `Tab` cycled agents, `Shift+Tab` went back — and the change came from the
+CLI itself ([PR #37706](https://github.com/anomalyco/opencode/pull/37706)) after
+`Tab` kept switching agents inside shell mode instead of completing the command
+([#20328](https://github.com/anomalyco/opencode/issues/20328)).
+
+Reverse cycling is unbound by default; `<leader>a` lists the agents. To get `Tab`
+back, override the binding in `tui.json`:
+
+```json
+{
+  "keybinds": {
+    "agent.cycle": "tab"
+  }
+}
+```
+
+The v1 names (`agent_cycle`, `agent_cycle_reverse`) still work — the CLI migrates
+them. Binding `Tab` to agent cycling brings the old collision back, though:
+`Tab` then both switches the agent and accepts the autocomplete.
+
 ## Reopening the window
 
 Reopen VS Code and you would normally get your terminal tab back, but as an idle

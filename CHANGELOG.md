@@ -10,6 +10,8 @@
   is restored afterwards.
 - The Explorer's right-click menu carries the same command, so a multi-selection
   works without the keyboard. Duplicate paths are collapsed.
+- README: how the CLI switches agents (`Shift+Tab`) and why plain `Tab` is left to
+  the autocomplete, with the `tui.json` override for anyone who wants it back.
 
 ## 0.1.6 — 2026-10-12
 
