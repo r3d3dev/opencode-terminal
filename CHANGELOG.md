@@ -16,6 +16,9 @@
 - New `opencode.continueLastSession` (default `true`): launch with `--continue`
   and resume the most recent session of the current project. With no session yet
   the CLI simply starts a new one.
+- Panel buttons: the terminal mark is narrower, matching the proportions of the
+  extension icon — the window goes from 400×440 to 340×440 and its legs from 96
+  to 66 (on the 512 grid). The prompt inside is unchanged.
 
 ## 0.1.4 — 2026-10-05
 
