@@ -175,7 +175,11 @@ assert.strictEqual(
 const editor = (relPath, selection) => {
   fakeVscode.workspace._relPath = relPath;
   return {
-    document: { isUntitled: false, uri: "file:///proj/" + relPath },
+    document: {
+      isUntitled: false,
+      uri: "file:///proj/" + relPath,
+      getText: () => fakeVscode.workspace._selectionText ?? "",
+    },
     selection: selection ?? {
       isEmpty: true,
       start: { line: 0, character: 0 },
@@ -225,7 +229,8 @@ const editor = (relPath, selection) => {
     "no ref without active editor",
   );
 
-  // 4. insertFileRef with selection -> line range
+  // 4. insertFileRef with a selection sends the selected text itself, as a paste
+  fakeVscode.workspace._selectionText = "const a = 1;\nconst b = 2;";
   fakeVscode.window.activeTextEditor = editor("src/app.ts", {
     isEmpty: false,
     start: { line: 9, character: 0 },
@@ -235,11 +240,12 @@ const editor = (relPath, selection) => {
   await calls.registered["opencodeTerminal.insertFileRef"]();
   assert.deepStrictEqual(
     t1.sent[t1.sent.length - 1],
-    { text: "@src/app.ts#L10-20", shouldExecute: false },
-    "selection becomes #L10-20",
+    { text: "const a = 1;\nconst b = 2;", shouldExecute: false },
+    "the selected text is sent, not a line reference",
   );
 
-  // 5. insertFileRef, single line selection
+  // 5. a single-line selection goes as text too
+  fakeVscode.workspace._selectionText = "# Title";
   fakeVscode.window.activeTextEditor = editor("README.md", {
     isEmpty: false,
     start: { line: 4, character: 0 },
@@ -248,8 +254,23 @@ const editor = (relPath, selection) => {
   await calls.registered["opencodeTerminal.insertFileRef"]();
   assert.deepStrictEqual(
     t1.sent[t1.sent.length - 1],
-    { text: "@README.md#L5", shouldExecute: false },
-    "single line becomes #L5",
+    { text: "# Title", shouldExecute: false },
+    "single line selection is sent as text",
+  );
+
+  // 5b. a whitespace-only selection falls back to a line reference
+  fakeVscode.workspace._selectionText = "   \n  ";
+  fakeVscode.workspace._relPath = "README.md";
+  fakeVscode.window.activeTextEditor = editor("README.md", {
+    isEmpty: false,
+    start: { line: 4, character: 0 },
+    end: { line: 5, character: 0 },
+  });
+  await calls.registered["opencodeTerminal.insertFileRef"]();
+  assert.deepStrictEqual(
+    t1.sent[t1.sent.length - 1],
+    { text: "@README.md#L5-6", shouldExecute: false },
+    "blank selection falls back to the line reference",
   );
 
   // 6. no workspace folder -> message, nothing sent
@@ -748,7 +769,8 @@ const editor = (relPath, selection) => {
     "the context menu selection becomes references",
   );
 
-  // 31. the editor still wins when asked for it, and a selection becomes lines
+  // 31. the editor still wins when asked for it, and a selection goes as text
+  fakeVscode.workspace._selectionText = "function main() {\n  return 1;\n}";
   fakeVscode.window.activeTextEditor = editor("src/app.ts", {
     isEmpty: false,
     start: { line: 2, character: 0 },
@@ -759,8 +781,8 @@ const editor = (relPath, selection) => {
   await calls.registered["opencodeTerminal.insertFileRef"]("editor");
   assert.deepStrictEqual(
     editorTerminal.sent.map((s) => s.text),
-    ["@src/app.ts#L3-7"],
-    "the selected lines are referenced",
+    ["function main() {\n  return 1;\n}"],
+    "the selected text is sent as one block",
   );
 
   // 32. keybindings: an extra chord for openNew and ctrl+cmd+p in both contexts

@@ -443,31 +443,52 @@ function activate(context) {
   };
 
   /**
-   * Put `@file` references into the OpenCode terminal. The files come from the
-   * Explorer context menu (which passes them as arguments), from the Explorer
-   * selection, or from the active editor — with a line range when text is
-   * selected. Falls back to opening a terminal when none exists yet.
+   * What the editor contributes: the selected text when something is selected,
+   * an `@file` reference otherwise. The text goes in through the same channel as
+   * a reference, and VS Code wraps a non-executing `sendText` in bracketed paste
+   * markers, so a multi-line snippet arrives as one block instead of each line
+   * being submitted.
+   */
+  const editorPayload = () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      return undefined;
+    }
+    if (!editor.selection.isEmpty) {
+      const selected = editor.document.getText(editor.selection);
+      if (selected.trim()) {
+        return selected;
+      }
+    }
+    return getFileRef();
+  };
+
+  /**
+   * Put references, or the selected text, into the OpenCode terminal. The files
+   * come from the Explorer context menu (which passes them as arguments), from
+   * the Explorer selection, or from the active editor. Falls back to opening a
+   * terminal when none exists yet.
    */
   const insertFileRef = async (...args) => {
     const flat = args.flat().filter(Boolean);
     const uris = flat.filter((arg) => typeof arg === "object" && arg.fsPath);
     const asked = flat.find((arg) => arg === "explorer" || arg === "editor");
 
-    const refs = [];
+    const payloads = [];
     if (uris.length) {
-      refs.push(...uris.map((uri) => pathToRef(uri.fsPath)).filter(Boolean));
+      payloads.push(...uris.map((uri) => pathToRef(uri.fsPath)).filter(Boolean));
     } else if (asked === "editor" || (!asked && vscode.window.activeTextEditor)) {
-      const ref = getFileRef();
-      if (ref) {
-        refs.push(ref);
+      const payload = editorPayload();
+      if (payload) {
+        payloads.push(payload);
       }
     } else {
-      refs.push(...(await explorerRefs()));
+      payloads.push(...(await explorerRefs()));
     }
 
     // The Explorer menu passes both the clicked URI and the whole selection, so
     // the same file can arrive twice.
-    const unique = [...new Set(refs)];
+    const unique = [...new Set(payloads)];
     if (!unique.length) {
       vscode.window.showInformationMessage(
         "OpenCode: select a file in the editor or in the Explorer first.",

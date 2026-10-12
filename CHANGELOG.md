@@ -3,11 +3,12 @@
 ## 0.1.7 — 2026-10-12
 
 - `Cmd+Ctrl+O` (`Ctrl+Alt+O`) also opens a new OpenCode terminal.
-- `Cmd+Ctrl+P` (`Ctrl+Alt+P`) sends references to the OpenCode terminal: the
-  selected lines when text is selected, the file itself otherwise, and every
-  selected file when the Explorer has focus. VS Code keeps the Explorer
-  selection to itself, so those paths are read back through the clipboard, which
-  is restored afterwards.
+- `Cmd+Ctrl+P` (`Ctrl+Alt+P`) sends references to the OpenCode terminal: every
+  selected file when the Explorer has focus, `@file` for the active editor, and —
+  when text is selected in the editor — the selected text itself, which arrives as
+  one block because VS Code wraps it in a bracketed paste. VS Code keeps the
+  Explorer selection to itself, so those paths are read back through the
+  clipboard, which is restored afterwards.
 - The Explorer's right-click menu carries the same command, so a multi-selection
   works without the keyboard. Duplicate paths are collapsed.
 - README: how the CLI switches agents (`Shift+Tab`) and why plain `Tab` is left to

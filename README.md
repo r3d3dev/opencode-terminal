@@ -43,20 +43,25 @@ Community build, not affiliated with the OpenCode project.
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
 
-## Sending files to OpenCode
+## Sending files or text to OpenCode
 
 `Cmd+Alt+K` (`Ctrl+Alt+K`) and `Cmd+Ctrl+P` (`Ctrl+Alt+P`) are the same command:
 it looks at where the focus is and sends what is selected there.
 
 | Focus | What is sent |
 | --- | --- |
-| Editor, text selected | `@relative/path#L10-20` for the selected lines (a single line becomes `#L10`). |
+| Editor, text selected | The **selected text itself**. A multi-line snippet arrives as one block. |
 | Editor, nothing selected | `@relative/path` for that file. |
 | Explorer, one or more files | `@relative/path` for every selected file. |
 | Explorer right-click | The same, from the context menu — no keyboard needed. |
 
-Several files arrive as one line: `@src/a.ts @src/b.ts`. Duplicates are dropped,
-so the clicked file is not repeated when it is also part of the selection.
+A selection of only whitespace falls back to `@relative/path#L10-20`, so a stray
+empty selection still tells the agent where you are. Several files arrive as one
+line: `@src/a.ts @src/b.ts`. Duplicates are dropped, so the clicked file is not
+repeated when it is also part of the selection.
+
+Multi-line text is safe because VS Code wraps a non-executing `sendText` in
+bracketed paste markers — the CLI receives a paste, not a series of Enter presses.
 
 VS Code does not expose the Explorer selection to extensions, so the keyboard
 path reads the paths back from the clipboard after asking VS Code to copy them,
