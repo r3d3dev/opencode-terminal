@@ -21,9 +21,12 @@ PANEL = (63, 63, 89)      # #3F3F59 lit panel
 GLYPH = (255, 255, 255)
 
 U = 28
-OW, OH = 10 * U, 13 * U
+# Mark proportions follow the official extension: the window is 2:3 and the
+# frame is a quarter of the mark's width (thickness = 1.5 U against a 6 U x 9 U
+# window). Everything inside the window is unchanged, only the frame grew.
+OW, OH = 12 * U, 15 * U
 OX, OY = (GRID - OW) // 2, (GRID - OH) // 2  # centre the mark inside the icon
-CX, CY = OX + 2 * U, OY + 2 * U  # counter
+CX, CY = OX + 3 * U, OY + 3 * U  # counter
 CELLS = [(1, 4), (2, 5), (1, 6), (3, 7), (4, 7)]
 RADIUS = 104
 
