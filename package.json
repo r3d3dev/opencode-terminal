@@ -183,6 +183,19 @@
           "default": "restore",
           "markdownDescription": "Whether OpenCode starts by itself when a VS Code window opens. `restore` (default) reopens it only in workspaces where it was left running, so the terminal comes back as a running agent instead of an idle shell. `always` starts it in every workspace. `never` leaves it to the button and the shortcut."
         },
+        "opencode.terminalLocation": {
+          "type": "string",
+          "enum": [
+            "panel",
+            "editor"
+          ],
+          "enumDescriptions": [
+            "The integrated terminal panel at the bottom of the window.",
+            "The editor area, beside the active editor (the official extension's placement). VS Code treats this as a terminal editor and can restore its group as an empty group on the next window."
+          ],
+          "default": "panel",
+          "markdownDescription": "Where the OpenCode terminal opens. `panel` (default) uses the integrated terminal panel. `editor` opens beside the active editor — the placement the official extension uses, with the caveat described in the setting."
+        },
         "opencode.continueLastSession": {
           "type": "boolean",
           "default": true,

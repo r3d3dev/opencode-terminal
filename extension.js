@@ -89,6 +89,17 @@ function activate(context) {
     }
   };
 
+  /**
+   * Where the terminal lives. The panel is the default: a terminal placed in the
+   * editor area is a terminal *editor* to VS Code, and the group it occupied
+   * comes back on the next window as an empty group even though the terminal
+   * itself was transient. The editor placement stays available as a setting.
+   */
+  const terminalLocation = () =>
+    config().get("terminalLocation", "panel") === "editor"
+      ? { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }
+      : vscode.TerminalLocation.Panel;
+
   const createTerminal = async () => {
     const env = { OPENCODE_CALLER: "vscode" };
     let port;
@@ -103,7 +114,7 @@ function activate(context) {
 
     const terminal = vscode.window.createTerminal({
       name: TERMINAL_NAME,
-      location: { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
+      location: terminalLocation(),
       env,
       // Do not let VS Code resurrect this terminal as a bare shell on the next
       // window: the shell would come back, the `opencode` process would not.

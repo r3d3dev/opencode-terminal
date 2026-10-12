@@ -5,9 +5,11 @@
 - Reopening VS Code now lands on a running `opencode` instead of an idle shell.
   The extension remembers whether OpenCode was open when the window closed and
   brings it back running `--continue`.
-- No extra empty tab: a terminal that lived in the editor area is restored by
-  VS Code as a bare shell, so the extension closes that leftover, starts OpenCode
-  in a fresh tab, and watches briefly for a stale one arriving late.
+- No extra empty group: the terminal opens in the integrated panel by default,
+  because a terminal in the editor area is a terminal *editor* to VS Code and the
+  group it occupied comes back empty on the next window. The editor placement
+  remains available as `opencode.terminalLocation`; any leftover OpenCode tab is
+  closed either way.
 - New `opencode.openOnStartup` (default `restore`): `restore` reopens only in a
   workspace where OpenCode was left running, `always` starts in every workspace,
   `never` leaves it to the button and the shortcut.

@@ -18,6 +18,7 @@ const calls = {
 
 const fakeVscode = {
   ViewColumn: { Beside: 2 },
+  TerminalLocation: { Panel: 1, Editor: 2 },
   Uri: {
     file(p) {
       return { fsPath: p, scheme: "file" };
@@ -166,6 +167,11 @@ const editor = (relPath, selection) => {
   const t1 = calls.createdTerminals[0];
   assert.strictEqual(t1.name, "opencode", "terminal named opencode");
   assert.strictEqual(t1.options.env.OPENCODE_CALLER, "vscode", "env set");
+  assert.strictEqual(
+    t1.options.location,
+    fakeVscode.TerminalLocation.Panel,
+    "terminal opens in the integrated panel by default",
+  );
   assert.ok(
     /images\/button-dark\.svg$/.test(t1.options.iconPath.light.fsPath),
     "terminal tab gets the opencode mark",
@@ -603,6 +609,29 @@ const editor = (relPath, selection) => {
   assert.ok(
     manifest.activationEvents.includes("onStartupFinished"),
     "activates on startup for the startup mode",
+  );
+  assert.strictEqual(
+    props["opencode.terminalLocation"].default,
+    "panel",
+    "the panel is the default placement",
+  );
+
+  // 28. terminalLocation=editor keeps the official beside-the-editor placement
+  fakeVscode.workspace.settings.terminalLocation = "editor";
+  fakeVscode.window.terminals.length = 0;
+  await calls.registered["opencodeTerminal.openNew"]();
+  assert.deepStrictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].options.location,
+    { viewColumn: fakeVscode.ViewColumn.Beside, preserveFocus: false },
+    "editor placement uses the beside-the-editor location",
+  );
+  fakeVscode.workspace.settings.terminalLocation = "panel";
+  fakeVscode.window.terminals.length = 0;
+  await calls.registered["opencodeTerminal.openNew"]();
+  assert.strictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].options.location,
+    fakeVscode.TerminalLocation.Panel,
+    "panel placement is used again after switching back",
   );
 
   console.log("OK: all smoke tests passed");
