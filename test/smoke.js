@@ -55,6 +55,8 @@ const fakeVscode = {
       command: "opencode",
       autoIncludeFile: true,
       fileRefDelay: 0, // send immediately so the test is synchronous
+      autoStart: false, // the auto-start on activation is tested separately
+      continueLastSession: false,
     },
     getConfiguration() {
       return {
@@ -391,6 +393,99 @@ const editor = (relPath, selection) => {
     typedOnly.sent.map((s) => s.text),
     ["@src/fb.ts"],
     "typed mode sends the reference as terminal input",
+  );
+
+  // 21. continueLastSession: the launch line resumes the project's last session
+  fakeVscode.workspace.settings.continueLastSession = true;
+  fakeVscode.workspace.settings.command = "opencode";
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.activeTerminal = undefined;
+  await calls.registered["opencodeTerminal.openNew"]();
+  const t6 = calls.createdTerminals[calls.createdTerminals.length - 1];
+  assert.strictEqual(
+    t6.sent[0].text,
+    "opencode --continue",
+    "resumes the last session with --continue",
+  );
+
+  // 22. continueLastSession=false -> a plain launch
+  fakeVscode.workspace.settings.continueLastSession = false;
+  fakeVscode.window.terminals.length = 0;
+  await calls.registered["opencodeTerminal.openNew"]();
+  assert.strictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].sent[0].text,
+    "opencode",
+    "no --continue when disabled",
+  );
+
+  // 23. the terminal is transient, so VS Code never restores a bare shell
+  assert.strictEqual(t6.options.isTransient, true, "terminal is transient");
+
+  // 24. autoStart: a fresh activation opens OpenCode for the workspace, without
+  //     an automatic @file reference (nothing has been asked for yet)
+  const reload = () => {
+    const resolved = require.resolve(path.join(__dirname, "..", "extension.js"));
+    delete require.cache[resolved];
+    return require(resolved);
+  };
+  const context2 = () => ({
+    subscriptions: [],
+    asAbsolutePath: (p) => path.join(__dirname, "..", p),
+  });
+  fakeVscode.workspace.settings.autoStart = true;
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.activeTextEditor = editor("src/app.ts");
+  const beforeAuto = calls.createdTerminals.length;
+  reload().activate(context2());
+  await new Promise((r) => setImmediate(r)); // let the void open() finish
+  assert.strictEqual(
+    calls.createdTerminals.length,
+    beforeAuto + 1,
+    "autoStart opens a terminal on activation",
+  );
+  assert.deepStrictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].sent.map((s) => s.text),
+    ["opencode"],
+    "autoStart launches opencode and sends no auto ref",
+  );
+
+  // 25. autoStart=false -> activation stays quiet
+  fakeVscode.workspace.settings.autoStart = false;
+  fakeVscode.window.terminals.length = 0;
+  const beforeQuiet = calls.createdTerminals.length;
+  reload().activate(context2());
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(
+    calls.createdTerminals.length,
+    beforeQuiet,
+    "no terminal when autoStart is off",
+  );
+
+  // 26. autoStart=true but no workspace folder -> nothing is opened
+  fakeVscode.workspace.settings.autoStart = true;
+  fakeVscode.workspace.workspaceFolders = [];
+  fakeVscode.window.terminals.length = 0;
+  const beforeNoFolder = calls.createdTerminals.length;
+  reload().activate(context2());
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(
+    calls.createdTerminals.length,
+    beforeNoFolder,
+    "no terminal without a workspace folder",
+  );
+  fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+
+  // 27. manifest: autoStart is contributed and on by default
+  const props = manifest.contributes.configuration.properties;
+  assert.strictEqual(props["opencode.autoStart"].default, true, "autoStart defaults on");
+  assert.strictEqual(
+    props["opencode.continueLastSession"].default,
+    true,
+    "continueLastSession defaults on",
+  );
+  assert.ok(
+    manifest.activationEvents.includes("onStartupFinished"),
+    "activates on startup for autoStart",
   );
 
   console.log("OK: all smoke tests passed");

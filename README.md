@@ -43,6 +43,25 @@ Community build, not affiliated with the OpenCode project.
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
 
+## Reopening the window
+
+Reopen VS Code and you would normally get your terminal tab back, but as an idle
+shell: VS Code restores the shell, not the `opencode` process that was running
+inside it. So the extension starts OpenCode itself.
+
+The terminal is created as *transient*, which means VS Code does not resurrect it
+as a bare shell on the next window. Instead, on startup the extension opens a
+fresh terminal and runs `opencode --continue`, so you land on the running agent
+with the last session of that project. No automatic `@file` reference is added —
+nothing has been asked for yet.
+
+- `opencode.autoStart: false` — do not start anything on window open; use the
+  button or the shortcut.
+- `opencode.continueLastSession: false` — always start a new session.
+
+Sessions are per project: `--continue` picks the most recent session of the
+folder that is open, so switching projects resumes the right conversation.
+
 ## Notes
 
 - The keybindings intentionally match the official `sst-dev.opencode` extension
@@ -74,6 +93,8 @@ terminal title actions (`+`, split, kill).
 | Setting | Default | Description |
 | --- | --- | --- |
 | `opencode.command` | `opencode` | Command used to start OpenCode (absolute path or shim if it is not on `PATH`). |
+| `opencode.autoStart` | `true` | Start OpenCode automatically when a window with a workspace folder opens. Turn it off to start only from the button or the shortcut. |
+| `opencode.continueLastSession` | `true` | Launch with `--continue`, resuming the most recent session of the current project. With no session yet, the CLI just starts a new one. |
 | `opencode.integration` | `typed` | `typed` types the `@file` reference into the terminal (any CLI version). `port` starts OpenCode with `--port <free port>` and appends the reference over HTTP — the OpenCode CLI v1 style. |
 | `opencode.autoIncludeFile` | `true` | Automatically append the active `@file` reference when opening a **new** terminal. |
 | `opencode.fileRefDelay` | `1000` | Delay (ms) before the automatic reference is sent to a fresh terminal. Increase it if your shell startup is slow. |

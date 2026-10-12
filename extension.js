@@ -105,6 +105,11 @@ function activate(context) {
       name: TERMINAL_NAME,
       location: { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
       env,
+      // Do not let VS Code resurrect this terminal as a bare shell on the next
+      // window: the shell would come back, the `opencode` process would not.
+      // We create a fresh terminal on startup instead (see the autoStart call
+      // at the end of activate).
+      isTransient: true,
       // OpenCode mark on the terminal tab, matching the official extension.
       iconPath: {
         light: vscode.Uri.file(context.asAbsolutePath("images/button-dark.svg")),
@@ -114,9 +119,24 @@ function activate(context) {
     return { terminal, port };
   };
 
+  /**
+   * Command line to start OpenCode. `--continue` resumes the most recent
+   * session of the current project; when the project has no session yet the
+   * CLI just starts a new one, so the flag is safe to keep on.
+   */
+  const startCommand = (port) => {
+    const parts = [config().get("command", "opencode")];
+    if (config().get("continueLastSession", true)) {
+      parts.push("--continue");
+    }
+    if (port) {
+      parts.push(`--port ${port}`);
+    }
+    return parts.join(" ");
+  };
+
   const startOpenCode = (terminal, port) => {
-    const command = config().get("command", "opencode");
-    terminal.sendText(port ? `${command} --port ${port}` : command);
+    terminal.sendText(startCommand(port));
   };
 
   /** Send text once OpenCode had time to boot in a freshly created terminal. */
@@ -187,7 +207,7 @@ function activate(context) {
     Boolean(terminal) && terminal.name === TERMINAL_NAME && !terminal.exitStatus;
 
   /** Open OpenCode, reusing the existing terminal when possible. */
-  const open = async () => {
+  const open = async ({ autoRef = true } = {}) => {
     const existing = vscode.window.terminals.find(isLiveTerminal);
     if (existing) {
       existing.show();
@@ -198,7 +218,7 @@ function activate(context) {
     terminal.show();
     startOpenCode(terminal, port);
 
-    if (config().get("autoIncludeFile", true)) {
+    if (autoRef && config().get("autoIncludeFile", true)) {
       await deliverRef(terminal, getFileRef(), port, true);
     }
   };
@@ -249,6 +269,14 @@ function activate(context) {
     vscode.commands.registerCommand("opencodeTerminal.openNew", openNew),
     vscode.commands.registerCommand("opencodeTerminal.insertFileRef", insertFileRef),
   );
+
+  // Bring OpenCode up as soon as a window with a workspace folder opens, so
+  // reopening VS Code lands on a running agent with the project's last session
+  // instead of an empty shell. No automatic `@file` reference here: the user
+  // has not asked for anything yet.
+  if (config().get("autoStart", true) && (vscode.workspace.workspaceFolders?.length ?? 0) > 0) {
+    void open({ autoRef: false });
+  }
 }
 
 function deactivate() {
