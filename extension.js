@@ -287,18 +287,19 @@ function activate(context) {
     startOpenCode(terminal, port);
   };
 
-  /** Send text once OpenCode had time to boot in a freshly created terminal. */
-  const sendLater = (terminal, text) => {
+  /** Run `write` once OpenCode had time to boot in a freshly created terminal. */
+  const sendLater = (terminal, write) => {
     const delay = config().get("fileRefDelay", 1000);
+    const run = () => {
+      if (!terminal.exitStatus) void write();
+    };
     if (delay <= 0) {
-      terminal.sendText(text, false);
+      run();
       return;
     }
     const timer = setTimeout(() => {
       pendingTimers.delete(timer);
-      if (!terminal.exitStatus) {
-        terminal.sendText(text, false);
-      }
+      run();
     }, delay);
     pendingTimers.add(timer);
   };
@@ -325,12 +326,45 @@ function activate(context) {
     return start === end ? `${ref}#L${start}` : `${ref}#L${start}-${end}`;
   };
 
-  const appendFileRef = (terminal, ref, { delay = false } = {}) => {
+  /**
+   * Write text into the terminal. Single-line text can go straight in, but line
+   * breaks cannot: VS Code normalizes every one of them to a carriage return
+   * ("Normalize line endings to 'enter' press"), and an Enter submits the prompt
+   * in the CLI. So multi-line text takes the terminal's own paste action instead —
+   * xterm wraps it in a bracketed paste whenever the app asked for that mode, and
+   * OpenCode's TUI does, so the CLI inserts the whole block at once. The clipboard
+   * is borrowed for the moment it takes and then put back.
+   */
+  const CLIPBOARD_RESTORE_MS = 150;
+
+  const pasteText = async (terminal, text) => {
+    if (vscode.window.activeTerminal !== terminal) {
+      terminal.show();
+    }
+    const previous = await vscode.env.clipboard.readText();
+    await vscode.env.clipboard.writeText(text);
+    try {
+      await vscode.commands.executeCommand("workbench.action.terminal.paste");
+      await new Promise((resolve) => setTimeout(resolve, CLIPBOARD_RESTORE_MS));
+    } finally {
+      if (previous !== text) {
+        await vscode.env.clipboard.writeText(previous);
+      }
+    }
+  };
+
+  const writeToTerminal = (terminal, text) =>
+    /[\r\n]/.test(text)
+      ? pasteText(terminal, text)
+      : Promise.resolve(terminal.sendText(text, false));
+
+  const appendFileRef = async (terminal, ref, { delay = false } = {}) => {
     if (!ref) return;
+    const write = () => writeToTerminal(terminal, ref);
     if (delay) {
-      sendLater(terminal, ref);
+      sendLater(terminal, write);
     } else {
-      terminal.sendText(ref, false);
+      await write();
     }
   };
 
@@ -347,7 +381,7 @@ function activate(context) {
         return;
       }
     }
-    appendFileRef(terminal, ref, { delay: fresh });
+    await appendFileRef(terminal, ref, { delay: fresh });
   };
 
   /** Reusable only while the terminal exists and its process is still running. */

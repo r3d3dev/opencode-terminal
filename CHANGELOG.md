@@ -6,11 +6,12 @@
   (`Ctrl+Alt+N`) opens a new one.
 - `Cmd+Ctrl+P` (`Ctrl+Alt+P`) sends references to the OpenCode terminal: every
   selected file when the Explorer has focus, `@file` for the active editor, and —
-  when text is selected in the editor — the selected text itself, which arrives as
-  one block because VS Code wraps it in a bracketed paste. The text is trimmed
-  first, because selecting whole lines includes the closing line break and the CLI
-  submits the prompt when a pasted block ends with one. VS Code keeps the
-  Explorer selection to itself, so those paths are read back through the
+  when text is selected in the editor — the selected text itself, trimmed and
+  delivered as one paste. Line breaks cannot go through `sendText`: VS Code
+  normalizes each one to a carriage return and the CLI submits the prompt on it,
+  so multi-line text takes the terminal's own paste action, which wraps it in a
+  bracketed paste when the CLI asked for that mode (OpenCode's TUI does). VS Code
+  keeps the Explorer selection to itself, so those paths are read back through the
   clipboard, which is restored afterwards.
 - **Send to OpenCode** in both right-click menus — the editor's and the Explorer's.
   The two are separate commands under the hood, so each menu shows the shortcut

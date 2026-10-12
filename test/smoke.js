@@ -110,6 +110,18 @@ const fakeVscode = {
         // VS Code copies the focused Explorer selection to the clipboard.
         fakeVscode.env.clipboard._text = fakeVscode.workspace._explorerCopy || "";
       }
+      if (id === "workbench.action.terminal.paste") {
+        // The paste action reads the clipboard and hands the text to xterm, which
+        // wraps it in a bracketed paste when the app enabled that mode.
+        const terminal = fakeVscode.window.activeTerminal;
+        if (terminal) {
+          terminal.sent.push({
+            text: fakeVscode.env.clipboard._text,
+            shouldExecute: false,
+            pasted: true,
+          });
+        }
+      }
       return Promise.resolve();
     },
   },
@@ -241,8 +253,8 @@ const editor = (relPath, selection) => {
   await calls.registered["opencodeTerminal.insertFileRef"]();
   assert.deepStrictEqual(
     t1.sent[t1.sent.length - 1],
-    { text: "const a = 1;\nconst b = 2;", shouldExecute: false },
-    "the selected text is sent, not a line reference",
+    { text: "const a = 1;\nconst b = 2;", shouldExecute: false, pasted: true },
+    "the selected text is pasted, not turned into a line reference",
   );
 
   // 5. a single-line selection goes as text too
@@ -774,9 +786,9 @@ const editor = (relPath, selection) => {
     "the context menu selection becomes references",
   );
 
-  // 31. the editor still wins when asked for it, and a selection goes as text —
-  //     trimmed, because the CLI submits the prompt when a pasted block ends with
-  //     a line break, and selecting whole lines includes one
+  // 31. the editor still wins when asked for it, and a selection goes in as a
+  //     paste — `sendText` would turn every line break into an Enter and submit
+  //     the prompt, which the user did not ask for
   fakeVscode.workspace._selectionText = "function main() {\n  return 1;\n}\n";
   fakeVscode.window.activeTextEditor = editor("src/app.ts", {
     isEmpty: false,
@@ -785,11 +797,21 @@ const editor = (relPath, selection) => {
   });
   const editorTerminal = fakeVscode.window.createTerminal({ name: "opencode" });
   fakeVscode.window.activeTerminal = editorTerminal;
+  fakeVscode.env.clipboard._text = "the user's clipboard";
   await calls.registered["opencodeTerminal.insertFileRef"]("editor");
   assert.deepStrictEqual(
-    editorTerminal.sent.map((s) => s.text),
-    ["function main() {\n  return 1;\n}"],
-    "the selected text is sent trimmed, inner line breaks kept",
+    editorTerminal.sent.map((s) => [s.text, s.pasted === true]),
+    [["function main() {\n  return 1;\n}", true]],
+    "the selected text goes in as one paste, trimmed, with inner breaks kept",
+  );
+  assert.strictEqual(
+    fakeVscode.env.clipboard._text,
+    "the user's clipboard",
+    "the borrowed clipboard is put back",
+  );
+  assert.ok(
+    calls.executed.includes("workbench.action.terminal.paste"),
+    "the terminal's paste action is what delivers it",
   );
 
   // 32. keybindings: ctrl+cmd+o / ctrl+cmd+n, and ctrl+cmd+p in both contexts
@@ -813,6 +835,14 @@ const editor = (relPath, selection) => {
     editorChord.when,
     "!filesExplorerFocus",
     "the editor chord stays live while a menu is open, so menus show it, and yields to the Explorer command there",
+  );
+  // A menu shows the last declared binding whose `when` matches, so the chord the
+  // user should see has to be declared after the legacy Cmd+Alt+K one.
+  const orderedIds = chords.map((k) => `${k.command}|${k.mac}`);
+  assert.ok(
+    orderedIds.lastIndexOf("opencodeTerminal.insertFileRef|cmd+alt+k") <
+      orderedIds.lastIndexOf("opencodeTerminal.insertFileRef|ctrl+cmd+p"),
+    "ctrl+cmd+p is declared last, so it is the chord the menus display",
   );
   const explorerChord = refChords.find((k) => k.command === "opencodeTerminal.addFiles");
   assert.ok(explorerChord, "the Explorer context has its own command");
