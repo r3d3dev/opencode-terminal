@@ -582,7 +582,27 @@ const editor = (relPath, selection) => {
     "env marker is enough to take the tab over",
   );
 
-  // 25c. a group VS Code left empty is closed as a fallback
+  // 25c. a group that came back empty is filled with the terminal instead of
+  //      being closed a moment later
+  fakeVscode.workspace.settings.openOnStartup = "restore";
+  startState.wasOpen = true;
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.tabGroups.all = [
+    { viewColumn: 1, tabs: [{ input: "editor" }] },
+    { viewColumn: 2, tabs: [] },
+  ];
+  baseline = calls.createdTerminals.length;
+  reload().activate(newContext());
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(baseline + 1, calls.createdTerminals.length, "one terminal opened");
+  assert.deepStrictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].options.location,
+    { viewColumn: 2, preserveFocus: false },
+    "the terminal opens into the restored empty group",
+  );
+  fakeVscode.window.tabGroups.all = [];
+
+  // 25d. a group VS Code left empty is closed as a fallback
   fakeVscode.window.terminals.length = 0;
   fakeVscode.window.tabGroups.all = [
     { viewColumn: 1, tabs: [{ input: "editor" }] },

@@ -54,10 +54,10 @@ on the next start brings it back running `opencode --continue` — the last sess
 of that project. A workspace where OpenCode was *not* running is left clean.
 
 No extra empty group is left behind either. The terminal gets a group of its own
-beside the editor; VS Code hands that group back with the terminal in it, and the
-extension takes that tab over — running the command in it instead of opening a
-second one — so the group is never left empty. A group that comes back empty
-anyway is closed.
+beside the editor; VS Code hands that group back, and the extension takes the
+tab over — running the command in it instead of opening a second one. When the
+group comes back without its terminal, OpenCode opens straight into that group,
+so nothing has to appear and disappear again.
 
 - `opencode.openOnStartup: "restore"` (default) — reopen only in a workspace where
   it was left running.

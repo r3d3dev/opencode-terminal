@@ -116,7 +116,7 @@ function activate(context) {
       ? vscode.TerminalLocation.Panel
       : { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false };
 
-  const createTerminal = async () => {
+  const createTerminal = async (location) => {
     const env = { OPENCODE_CALLER: "vscode" };
     let port;
     if (usesPort()) {
@@ -130,7 +130,7 @@ function activate(context) {
 
     const terminal = vscode.window.createTerminal({
       name: TERMINAL_NAME,
-      location: terminalLocation(),
+      location: location ?? terminalLocation(),
       env,
       // Do not let VS Code resurrect this terminal as a bare shell on the next
       // window: the shell would come back, the `opencode` process would not.
@@ -196,18 +196,37 @@ function activate(context) {
     (terminal.name === TERMINAL_NAME ||
       terminal.creationOptions?.env?.["OPENCODE_CALLER"] === "vscode");
 
-  /** How long the window may take to hand back the terminals of the last session. */
-  const RESTORE_WAIT_MS = 2000;
+  /** How long the window may take to hand the previous layout back. */
+  const RESTORE_WAIT_MS = 1500;
 
-  const waitForRestored = async () => {
+  /**
+   * An editor group with nothing in it — this is what VS Code leaves behind for
+   * the terminal of the previous window: the group comes back, the terminal in
+   * it does not. Prefers a group beside the editor over the main one.
+   */
+  const findEmptyGroup = () => {
+    const groups = vscode.window.tabGroups?.all ?? [];
+    if (groups.length <= 1) {
+      return undefined;
+    }
+    const empty = groups.filter((group) => group.tabs.length === 0);
+    return empty.find((group) => group.viewColumn !== 1) ?? empty[0];
+  };
+
+  /** Whichever of the two the window brings back first: a terminal or its group. */
+  const waitForWindowRestore = async () => {
     const deadline = Date.now() + RESTORE_WAIT_MS;
     for (;;) {
-      const found = vscode.window.terminals.find(isRestored);
-      if (found) {
-        return found;
+      const terminal = vscode.window.terminals.find(isRestored);
+      if (terminal) {
+        return { terminal };
+      }
+      const group = findEmptyGroup();
+      if (group) {
+        return { group };
       }
       if (Date.now() >= deadline) {
-        return undefined;
+        return {};
       }
       await sleep(100);
     }
@@ -244,19 +263,26 @@ function activate(context) {
 
   /**
    * Start OpenCode when the window opens. `expectRestore` means the previous
-   * window had it running, so the restored tab is awaited and taken over; with
-   * no tab to take over, a terminal is opened beside the editor. Pressing the
-   * button stays `open`/`openNew` — nothing here reacts to a user action.
+   * window had it running, so the restored terminal is awaited and taken over;
+   * a group that came back without its terminal is filled instead of being
+   * closed. Anything else opens a terminal beside the editor.
    */
   const startAtStartup = async (expectRestore) => {
-    const restored = expectRestore ? await waitForRestored() : undefined;
-    if (restored) {
-      restored.show();
-      startOpenCode(restored, portOf(restored));
+    const found = expectRestore ? await waitForWindowRestore() : { group: findEmptyGroup() };
+    if (found.terminal) {
+      found.terminal.show();
+      startOpenCode(found.terminal, portOf(found.terminal));
       return;
     }
 
-    const { terminal, port } = await createTerminal();
+    // Opening into the restored group keeps the layout still: no new group to
+    // appear and no empty one to close a moment later.
+    const editorMode = config().get("terminalLocation", "editor") !== "panel";
+    const location =
+      found.group && editorMode
+        ? { viewColumn: found.group.viewColumn, preserveFocus: false }
+        : undefined;
+    const { terminal, port } = await createTerminal(location);
     terminal.show();
     startOpenCode(terminal, port);
   };
