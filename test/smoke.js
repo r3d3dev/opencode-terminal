@@ -35,11 +35,19 @@ const fakeVscode = {
         sent: [],
         exitStatus: undefined,
         shown: 0,
+        disposed: false,
         show() {
           this.shown++;
         },
         sendText(text, shouldExecute = true) {
           this.sent.push({ text, shouldExecute });
+        },
+        dispose() {
+          this.disposed = true;
+          const index = fakeVscode.window.terminals.indexOf(this);
+          if (index >= 0) {
+            fakeVscode.window.terminals.splice(index, 1);
+          }
         },
       };
       calls.createdTerminals.push(terminal);
@@ -52,6 +60,11 @@ const fakeVscode = {
     _closeListeners: [],
     onDidCloseTerminal(listener) {
       this._closeListeners.push(listener);
+      return { dispose() {} };
+    },
+    _openListeners: [],
+    onDidOpenTerminal(listener) {
+      this._openListeners.push(listener);
       return { dispose() {} };
     },
   },
@@ -520,8 +533,8 @@ const editor = (relPath, selection) => {
   );
   fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
 
-  // 25. a terminal VS Code handed back as an empty shell is reused instead of
-  //     opening a second tab
+  // 25. a terminal VS Code handed back as a bare shell is closed, and the tab we
+  //     start takes its place — no second OpenCode tab is left behind
   fakeVscode.workspace.settings.openOnStartup = "restore";
   startState.wasOpen = true;
   fakeVscode.window.terminals.length = 0;
@@ -529,12 +542,26 @@ const editor = (relPath, selection) => {
   baseline = calls.createdTerminals.length;
   reload().activate(newContext());
   await new Promise((r) => setImmediate(r));
-  assert.strictEqual(calls.createdTerminals.length, baseline, "restored terminal reused, not duplicated");
+  assert.strictEqual(leftover.disposed, true, "the restored shell is closed");
+  assert.strictEqual(baseline + 1, calls.createdTerminals.length, "one fresh terminal starts");
+  const freshTerminal = calls.createdTerminals[calls.createdTerminals.length - 1];
+  assert.strictEqual(freshTerminal.disposed, false, "the terminal we start is kept");
   assert.deepStrictEqual(
-    leftover.sent.map((s) => s.text),
+    freshTerminal.sent.map((s) => s.text),
     ["opencode --continue"],
-    "the command runs in the restored shell",
+    "the fresh terminal resumes the session",
   );
+  assert.strictEqual(
+    fakeVscode.window.terminals.filter((t) => t.name === "opencode" && !t.disposed).length,
+    1,
+    "exactly one OpenCode terminal is left",
+  );
+
+  // 25b. a stale tab that shows up only after the window opened is closed too
+  const lateStray = fakeVscode.window.createTerminal({ name: "opencode" });
+  fakeVscode.window._openListeners[fakeVscode.window._openListeners.length - 1](lateStray);
+  assert.strictEqual(lateStray.disposed, true, "late stray closed");
+  assert.strictEqual(freshTerminal.disposed, false, "our terminal survives the watch");
 
   // 26. the "was open" flag is set when OpenCode starts and cleared when the
   //     user closes the last OpenCode terminal

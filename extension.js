@@ -156,19 +156,46 @@ function activate(context) {
   };
 
   /**
-   * Bring OpenCode back up on window open. VS Code can hand back a terminal it
-   * restored as a bare shell (the process inside it is gone), so when a live
-   * `opencode` terminal is already there we run the command in it instead of
-   * opening a second tab.
+   * A terminal VS Code carried over from the previous window. A terminal that
+   * lived in the editor area is restored as an empty shell even when it was
+   * created transient, which is why a dead `opencode` tab can turn up in a group
+   * of its own next to the one we start: the process inside it is gone, only the
+   * shell is back.
    */
-  const reopen = async () => {
-    const existing = vscode.window.terminals.find(isLiveTerminal);
-    if (existing) {
-      existing.show();
-      startOpenCode(existing, portOf(existing));
-      return;
-    }
+  const isStray = (terminal) =>
+    Boolean(terminal) && terminal.name === TERMINAL_NAME && !ours.has(terminal);
 
+  const closeStrays = () => {
+    for (const terminal of vscode.window.terminals) {
+      if (isStray(terminal)) {
+        terminal.dispose();
+      }
+    }
+  };
+
+  /** How long to wait for a restored tab that shows up after the window opens. */
+  const STRAY_WATCH_MS = 10000;
+
+  const watchStrays = () => {
+    closeStrays();
+    const subscription = vscode.window.onDidOpenTerminal(() => closeStrays());
+    const timer = setTimeout(() => {
+      pendingTimers.delete(timer);
+      subscription.dispose();
+    }, STRAY_WATCH_MS);
+    // Do not hold the extension host open just for the watch.
+    if (typeof timer.unref === "function") {
+      timer.unref();
+    }
+    pendingTimers.add(timer);
+  };
+
+  /**
+   * Start OpenCode when the window opens. Runs in a terminal of its own: the
+   * strays are closed first, and `--continue` brings back the project's last
+   * session. No automatic `@file` reference — nothing has been asked yet.
+   */
+  const startAtStartup = async () => {
     const { terminal, port } = await createTerminal();
     terminal.show();
     startOpenCode(terminal, port);
@@ -319,7 +346,8 @@ function activate(context) {
   const wasOpen = context.workspaceState.get(STATE_KEY, false);
   const hasFolder = (vscode.workspace.workspaceFolders?.length ?? 0) > 0;
   if (hasFolder && openOnStartup !== "never" && (openOnStartup === "always" || wasOpen)) {
-    void reopen();
+    watchStrays();
+    void startAtStartup();
   }
 }
 

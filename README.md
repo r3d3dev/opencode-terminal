@@ -51,11 +51,12 @@ inside it.
 
 So the extension remembers whether OpenCode was open when the window closed, and
 on the next start brings it back running `opencode --continue` — the last session
-of that project. A workspace where OpenCode was *not* running is left clean, and
-no extra empty tab is left behind: if VS Code hands a terminal back as a bare
-shell, the command runs in that very tab instead of a second one being opened.
+of that project. A workspace where OpenCode was *not* running is left clean.
 
-The terminal is *transient*, so VS Code never restores it as a dead shell.
+No extra empty tab is left behind either. A terminal that lived in the editor
+area comes back from VS Code as a bare shell (the process inside it is gone), so
+the extension closes that leftover, starts OpenCode in a fresh tab, and keeps an
+eye out for a few seconds in case a stale one arrives late.
 
 - `opencode.openOnStartup: "restore"` (default) — reopen only in a workspace where
   it was left running.
