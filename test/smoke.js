@@ -358,10 +358,14 @@ const editor = (relPath, selection) => {
   assert.strictEqual(manifest.scripts.test, "node test/smoke.js", "test script wired");
 
   // 13. keybindings are deduplicated: key is cross-platform, only mac overrides
+  const chordIds = new Set();
   for (const kb of manifest.contributes.keybindings) {
     assert.ok(!("win" in kb) && !("linux" in kb), "no redundant win/linux keys");
     assert.ok(kb.key && kb.mac, "has cross-platform key plus mac override");
     assert.ok(!kb.key.startsWith("cmd+"), "default key is not macOS-only");
+    const id = `${kb.command}|${kb.key}|${kb.mac}|${kb.when || ""}`;
+    assert.ok(!chordIds.has(id), `no duplicate keybinding: ${id}`);
+    chordIds.add(id);
   }
 
   // 14. manifest: the v1 integration mode exists and defaults to typed

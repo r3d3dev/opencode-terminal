@@ -111,11 +111,6 @@
       },
       {
         "command": "opencodeTerminal.open",
-        "key": "ctrl+escape",
-        "mac": "cmd+escape"
-      },
-      {
-        "command": "opencodeTerminal.open",
         "key": "ctrl+alt+o",
         "mac": "ctrl+cmd+o"
       },
