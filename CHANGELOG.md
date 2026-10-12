@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.8 — 2026-10-12
+
+- Notifications: a finished turn, a permission request and a session error now
+  raise a VS Code notification with a *Show terminal* button. The integrated
+  terminal cannot surface the CLI's own OSC 99 attention escapes, so the extension
+  starts OpenCode with `OPENCODE_CONFIG_DIR` pointing at a directory of its own,
+  holding `plugins/opencode-attention.js`; that plugin logs `session.idle`,
+  `permission.asked` and `session.error` into a file the extension watches. The
+  user's OpenCode configuration is untouched, and an already-set
+  `OPENCODE_CONFIG_DIR` is respected (notifications stay off in that case).
+  Two settings: `opencode.notifications` (`unfocused` — the default —, `always`,
+  `never`) and `opencode.notifyOnTurnEnd` (`true`). The event log is emptied on
+  activation, so reopening a window never replays old events, and the watcher is
+  unref'd so it cannot hold the extension host open.
+- README: a *Notifications* section, the two settings, and the coexistence wording
+  with the official extension (its own chords do not clash, so both can be
+  installed and this one driven from `Cmd+Ctrl+O` / `Cmd+Ctrl+N` / `Cmd+Ctrl+P`).
+- INSTALLATION.md: the `.vsix` examples no longer pin a version that goes stale.
+
 ## 0.1.7 — 2026-10-12
 
 - `Cmd+Ctrl+O` (`Ctrl+Alt+O`) also opens the OpenCode terminal, and `Cmd+Ctrl+N`

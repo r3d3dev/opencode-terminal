@@ -1,8 +1,8 @@
 {
   "name": "opencode-terminal-cli",
   "displayName": "OpenCode v2 Terminal",
-  "description": "OpenCode terminal launcher for VS Code: open the OpenCode CLI agent in the integrated terminal with one shortcut and insert @file references from the editor. A dependency-free alternative to the official sst-dev.opencode extension, which stopped working with OpenCode CLI v2. Works with CLI v1 and v2.",
-  "version": "0.1.7",
+  "description": "OpenCode terminal launcher for VS Code: open the OpenCode CLI agent in the integrated terminal with one shortcut, insert @file references from the editor, and get a VS Code notification when the agent finishes, asks for a permission, or fails. A dependency-free alternative to the official sst-dev.opencode extension, which stopped working with OpenCode CLI v2. Works with CLI v1 and v2.",
+  "version": "0.1.8",
   "publisher": "r3d3dev",
   "license": "MIT",
   "author": {
@@ -248,6 +248,26 @@
           "default": 1000,
           "minimum": 0,
           "markdownDescription": "Delay in milliseconds before the automatic `@file` reference is sent to a newly opened terminal. Increase it if your shell startup is slow and the reference is swallowed before OpenCode starts."
+        },
+        "opencode.notifications": {
+          "type": "string",
+          "enum": [
+            "unfocused",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Notify only when neither the window nor the OpenCode terminal is in front.",
+            "Notify on every event, even while the OpenCode terminal has focus.",
+            "Never notify."
+          ],
+          "default": "unfocused",
+          "markdownDescription": "Show a VS Code notification when OpenCode finishes a turn, asks for a permission decision, or stops with an error. The integrated terminal cannot surface the CLI's own desktop notifications, so the extension starts OpenCode with a small plugin of its own that reports those events; your OpenCode configuration is left untouched. Changing this needs a window reload, because it decides how the terminal is started."
+        },
+        "opencode.notifyOnTurnEnd": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Also notify when a turn finishes. Turn it off to be told only about permission requests and errors."
         }
       }
     }

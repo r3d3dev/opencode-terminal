@@ -1,7 +1,9 @@
 "use strict";
 
 const vscode = require("vscode");
+const fs = require("fs");
 const net = require("net");
+const path = require("path");
 
 const TERMINAL_NAME = "opencode";
 
@@ -33,6 +35,43 @@ const FOCUS_GROUP_COMMAND = {
 
 /** Timers for delayed sends, so they can be cancelled on deactivate. */
 const pendingTimers = new Set();
+
+/**
+ * Attention wiring. The CLI's own notifications ("terminal-mediated desktop
+ * notifications", OSC 99) only reach terminals that speak that protocol; the
+ * VS Code integrated terminal does not, so the extension carries the events
+ * across itself: a plugin dropped into a config directory the extension owns
+ * appends every event to a log file (see plugins/opencode-attention.js), and
+ * the extension watches that log and shows a VS Code notification.
+ */
+const ATTENTION_CONFIG_ENV = "OPENCODE_CONFIG_DIR";
+const ATTENTION_FILE_ENV = "OPENCODE_ATTENTION_FILE";
+const ATTENTION_DEBUG_ENV = "OPENCODE_ATTENTION_DEBUG";
+const ATTENTION_PLUGIN = "plugins/opencode-attention.js";
+
+/** Polling safety net; the directory watcher fires first when it works. */
+const ATTENTION_POLL_MS = 1000;
+
+/** How each event surfaces, and which setting can switch it off. */
+const NOTIFICATION_KINDS = {
+  "permission.asked": {
+    level: "warning",
+    message: "OpenCode is waiting for a permission decision.",
+  },
+  "session.error": {
+    level: "error",
+    message: "OpenCode stopped with an error.",
+  },
+  "session.idle": {
+    level: "info",
+    message: "OpenCode finished.",
+    setting: "notifyOnTurnEnd",
+  },
+};
+
+/** Watchers and the poll timer, so a reload cannot leave them behind. */
+let attentionWatchers = [];
+let attentionPoll;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -116,8 +155,177 @@ function activate(context) {
       ? vscode.TerminalLocation.Panel
       : { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false };
 
+  /**
+   * Notifications. The CLI writes the events into a log the extension watches,
+   * so nothing here needs a server, a port, or a change to the user's own
+   * OpenCode configuration (see plugins/opencode-attention.js).
+   */
+  const attentionRoot = () =>
+    context.globalStorageUri ? path.join(context.globalStorageUri.fsPath, "attention") : undefined;
+
+  const attentionLog = () => path.join(attentionRoot(), "events.jsonl");
+
+  const notificationsMode = () => config().get("notifications", "unfocused");
+
+  /**
+   * Copy the shipped plugin into a config directory the extension owns and start
+   * from an empty log. Returns that directory, or undefined when notifications
+   * are off — or when the user already sets `OPENCODE_CONFIG_DIR` themselves,
+   * because our value would replace theirs for the terminals we open.
+   */
+  const prepareAttention = () => {
+    if (notificationsMode() === "never") return undefined;
+    if (process.env[ATTENTION_CONFIG_ENV]) return undefined;
+    const root = attentionRoot();
+    if (!root) return undefined;
+    try {
+      const target = path.join(root, "plugins", path.basename(ATTENTION_PLUGIN));
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      const source = fs.readFileSync(context.asAbsolutePath(ATTENTION_PLUGIN));
+      let current;
+      try {
+        current = fs.readFileSync(target);
+      } catch {
+        current = undefined;
+      }
+      if (!current || !current.equals(source)) {
+        fs.writeFileSync(target, source);
+      }
+      fs.writeFileSync(attentionLog(), "");
+      return root;
+    } catch {
+      // Notifications are a nicety: never let them block a launch.
+      return undefined;
+    }
+  };
+
+  /** Is the user looking at the OpenCode terminal right now? */
+  const terminalInFront = () =>
+    vscode.window.state?.focused === true && isLiveTerminal(vscode.window.activeTerminal);
+
+  const shouldNotify = () => {
+    const mode = notificationsMode();
+    if (mode === "never") return false;
+    if (mode === "always") return true;
+    return !terminalInFront();
+  };
+
+  const showTerminal = () => {
+    const terminal = isLiveTerminal(vscode.window.activeTerminal)
+      ? vscode.window.activeTerminal
+      : vscode.window.terminals.find(isLiveTerminal);
+    if (terminal) terminal.show();
+  };
+
+  /** One notification per event, with a way back to the terminal. */
+  const notify = (type) => {
+    const spec = NOTIFICATION_KINDS[type];
+    if (!spec) return;
+    if (spec.setting && !config().get(spec.setting, true)) return;
+    if (!shouldNotify()) return;
+    const show =
+      spec.level === "error"
+        ? vscode.window.showErrorMessage
+        : spec.level === "warning"
+          ? vscode.window.showWarningMessage
+          : vscode.window.showInformationMessage;
+    if (typeof show !== "function") return;
+    Promise.resolve(show.call(vscode.window, spec.message, "Show terminal"))
+      .then((choice) => {
+        if (choice === "Show terminal") showTerminal();
+      })
+      .catch(() => {});
+  };
+
+  /**
+   * Read whatever the CLI appended since the last look. Only whole lines are
+   * consumed: the plugin writes one event per line, and a half-written tail is
+   * left for the next read.
+   */
+  let attentionOffset = 0;
+  const readAttentionLog = () => {
+    let buffer;
+    try {
+      const stat = fs.statSync(attentionLog());
+      if (stat.size <= attentionOffset) {
+        attentionOffset = stat.size;
+        return;
+      }
+      buffer = Buffer.alloc(stat.size - attentionOffset);
+      const fd = fs.openSync(attentionLog(), "r");
+      try {
+        fs.readSync(fd, buffer, 0, buffer.length, attentionOffset);
+      } finally {
+        fs.closeSync(fd);
+      }
+    } catch {
+      return;
+    }
+    const end = buffer.lastIndexOf(0x0a);
+    if (end < 0) return;
+    attentionOffset += end + 1;
+    for (const line of buffer.slice(0, end).toString("utf8").split("\n")) {
+      if (!line.trim()) continue;
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (event && typeof event.type === "string") notify(event.type);
+    }
+  };
+
+  /** Watch the log: a directory watcher, plus a poll for filesystems that miss it. */
+  const watchAttention = () => {
+    for (const watcher of attentionWatchers) {
+      try {
+        watcher.close();
+      } catch {
+        // Already gone.
+      }
+    }
+    attentionWatchers = [];
+    if (attentionPoll) {
+      clearInterval(attentionPoll);
+      attentionPoll = undefined;
+    }
+    try {
+      const watcher = fs.watch(attentionRoot(), () => readAttentionLog());
+      attentionWatchers.push(watcher);
+      // Without this the watcher holds the process (and a test run) open.
+      if (typeof watcher.unref === "function") {
+        watcher.unref();
+      }
+      context.subscriptions.push({
+        dispose: () => {
+          try {
+            watcher.close();
+          } catch {
+            // Already gone.
+          }
+        },
+      });
+    } catch {
+      // The poll below covers it.
+    }
+    attentionPoll = setInterval(readAttentionLog, ATTENTION_POLL_MS);
+    if (typeof attentionPoll.unref === "function") {
+      attentionPoll.unref();
+    }
+  };
+
+  const attentionConfigDir = prepareAttention();
+  if (attentionConfigDir) {
+    watchAttention();
+  }
+
   const createTerminal = async (location) => {
     const env = { OPENCODE_CALLER: "vscode" };
+    if (attentionConfigDir) {
+      env[ATTENTION_CONFIG_ENV] = attentionConfigDir;
+      env[ATTENTION_FILE_ENV] = attentionLog();
+    }
     let port;
     if (usesPort()) {
       try {
@@ -577,6 +785,18 @@ function deactivate() {
     clearTimeout(timer);
   }
   pendingTimers.clear();
+  if (attentionPoll) {
+    clearInterval(attentionPoll);
+    attentionPoll = undefined;
+  }
+  for (const watcher of attentionWatchers) {
+    try {
+      watcher.close();
+    } catch {
+      // Already gone.
+    }
+  }
+  attentionWatchers = [];
 }
 
 module.exports = { activate, deactivate };
