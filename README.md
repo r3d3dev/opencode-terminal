@@ -36,7 +36,7 @@ Community build, not affiliated with the OpenCode project.
 
 | Command | macOS | Windows / Linux | Description |
 | --- | --- | --- | --- |
-| **OpenCode: Open in Terminal** | `Cmd+Esc` | `Ctrl+Esc` | Open OpenCode in the integrated terminal panel; reuses an existing `opencode` terminal. |
+| **OpenCode: Open in Terminal** | `Cmd+Esc` | `Ctrl+Esc` | Open OpenCode in a group of its own beside the editor; reuses an existing `opencode` terminal. |
 | **OpenCode: Open in New Terminal** | `Cmd+Shift+Esc` | `Ctrl+Shift+Esc` | Always start a fresh terminal with OpenCode. |
 | **OpenCode: Insert @-File Reference** | `Cmd+Alt+K` | `Ctrl+Alt+K` | Insert `@relative/path` (plus `#L10` / `#L10-20` for the current selection) into the OpenCode terminal. Opens a terminal first if none exists. |
 
@@ -53,11 +53,11 @@ So the extension remembers whether OpenCode was open when the window closed, and
 on the next start brings it back running `opencode --continue` — the last session
 of that project. A workspace where OpenCode was *not* running is left clean.
 
-No extra empty group is left behind either. The terminal opens in the **panel** by
-default; in the editor area VS Code treats it as a terminal *editor* and restores
-the group it occupied as an empty group on the next window. The editor placement
-is still available through `opencode.terminalLocation`, together with the closing
-of any leftover OpenCode tab that shows up late.
+No extra empty group is left behind either. The terminal gets a group of its own
+beside the editor; VS Code hands that group back with the terminal in it, and the
+extension takes that tab over — running the command in it instead of opening a
+second one — so the group is never left empty. A group that comes back empty
+anyway is closed.
 
 - `opencode.openOnStartup: "restore"` (default) — reopen only in a workspace where
   it was left running.
@@ -102,7 +102,7 @@ terminal title actions (`+`, split, kill).
 | --- | --- | --- |
 | `opencode.command` | `opencode` | Command used to start OpenCode (absolute path or shim if it is not on `PATH`). |
 | `opencode.openOnStartup` | `restore` | When OpenCode starts by itself on window open: `restore` (only where it was left running), `always`, or `never`. |
-| `opencode.terminalLocation` | `panel` | Where the terminal opens: `panel` (integrated terminal) or `editor` (beside the active editor, the official extension's placement). |
+| `opencode.terminalLocation` | `editor` | Where the terminal opens: `editor` (a group of its own beside the editor) or `panel` (the integrated terminal panel). |
 | `opencode.continueLastSession` | `true` | Launch with `--continue`, resuming the most recent session of the current project. With no session yet, the CLI just starts a new one. |
 | `opencode.integration` | `typed` | `typed` types the `@file` reference into the terminal (any CLI version). `port` starts OpenCode with `--port <free port>` and appends the reference over HTTP — the OpenCode CLI v1 style. |
 | `opencode.autoIncludeFile` | `true` | Automatically append the active `@file` reference when opening a **new** terminal. |

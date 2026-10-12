@@ -186,15 +186,15 @@
         "opencode.terminalLocation": {
           "type": "string",
           "enum": [
-            "panel",
-            "editor"
+            "editor",
+            "panel"
           ],
           "enumDescriptions": [
-            "The integrated terminal panel at the bottom of the window.",
-            "The editor area, beside the active editor (the official extension's placement). VS Code treats this as a terminal editor and can restore its group as an empty group on the next window."
+            "A group of its own in the editor area, beside the active editor (the official extension's placement).",
+            "The integrated terminal panel at the bottom of the window."
           ],
-          "default": "panel",
-          "markdownDescription": "Where the OpenCode terminal opens. `panel` (default) uses the integrated terminal panel. `editor` opens beside the active editor — the placement the official extension uses, with the caveat described in the setting."
+          "default": "editor",
+          "markdownDescription": "Where the OpenCode terminal opens. `editor` (default) gives it a group of its own beside the active editor. `panel` uses the integrated terminal panel."
         },
         "opencode.continueLastSession": {
           "type": "boolean",

@@ -14,6 +14,7 @@ const calls = {
   createdTerminals: [],
   messages: [],
   registered: {},
+  executed: [],
 };
 
 const fakeVscode = {
@@ -26,6 +27,7 @@ const fakeVscode = {
   },
   window: {
     terminals: [],
+    tabGroups: { all: [] },
     activeTerminal: undefined,
     activeTextEditor: undefined,
     createTerminal(options) {
@@ -99,6 +101,10 @@ const fakeVscode = {
       calls.registered[id] = fn;
       return { dispose() {} };
     },
+    executeCommand(id) {
+      calls.executed.push(id);
+      return Promise.resolve();
+    },
   },
 };
 
@@ -167,10 +173,10 @@ const editor = (relPath, selection) => {
   const t1 = calls.createdTerminals[0];
   assert.strictEqual(t1.name, "opencode", "terminal named opencode");
   assert.strictEqual(t1.options.env.OPENCODE_CALLER, "vscode", "env set");
-  assert.strictEqual(
+  assert.deepStrictEqual(
     t1.options.location,
-    fakeVscode.TerminalLocation.Panel,
-    "terminal opens in the integrated panel by default",
+    { viewColumn: fakeVscode.ViewColumn.Beside, preserveFocus: false },
+    "terminal opens in a group of its own beside the editor",
   );
   assert.ok(
     /images\/button-dark\.svg$/.test(t1.options.iconPath.light.fsPath),
@@ -479,12 +485,17 @@ const editor = (relPath, selection) => {
     },
   });
 
-  // restore + it was open -> comes back, resuming the session, no auto ref
+  // restore + it was open, but VS Code handed nothing back -> after the wait a
+  // terminal is opened anyway
   fakeVscode.window.terminals.length = 0;
   let baseline = calls.createdTerminals.length;
   reload().activate(newContext());
-  await new Promise((r) => setImmediate(r));
-  assert.strictEqual(baseline + 1, calls.createdTerminals.length, "restore opens a terminal");
+  await new Promise((r) => setTimeout(r, 2200));
+  assert.strictEqual(
+    baseline + 1,
+    calls.createdTerminals.length,
+    "restore waits for the previous tab and then opens a terminal",
+  );
   assert.deepStrictEqual(
     calls.createdTerminals[calls.createdTerminals.length - 1].sent.map((s) => s.text),
     ["opencode --continue"],
@@ -539,35 +550,59 @@ const editor = (relPath, selection) => {
   );
   fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
 
-  // 25. a terminal VS Code handed back as a bare shell is closed, and the tab we
-  //     start takes its place — no second OpenCode tab is left behind
+  // 25. a terminal handed back by the previous window is taken over instead of
+  //     being duplicated: its tab keeps its group and runs the command
   fakeVscode.workspace.settings.openOnStartup = "restore";
   startState.wasOpen = true;
   fakeVscode.window.terminals.length = 0;
-  const leftover = fakeVscode.window.createTerminal({ name: "opencode" });
+  const restored = fakeVscode.window.createTerminal({ name: "opencode" });
   baseline = calls.createdTerminals.length;
   reload().activate(newContext());
   await new Promise((r) => setImmediate(r));
-  assert.strictEqual(leftover.disposed, true, "the restored shell is closed");
-  assert.strictEqual(baseline + 1, calls.createdTerminals.length, "one fresh terminal starts");
-  const freshTerminal = calls.createdTerminals[calls.createdTerminals.length - 1];
-  assert.strictEqual(freshTerminal.disposed, false, "the terminal we start is kept");
+  assert.strictEqual(calls.createdTerminals.length, baseline, "no second terminal opened");
   assert.deepStrictEqual(
-    freshTerminal.sent.map((s) => s.text),
+    restored.sent.map((s) => s.text),
     ["opencode --continue"],
-    "the fresh terminal resumes the session",
-  );
-  assert.strictEqual(
-    fakeVscode.window.terminals.filter((t) => t.name === "opencode" && !t.disposed).length,
-    1,
-    "exactly one OpenCode terminal is left",
+    "the restored tab takes the command",
   );
 
-  // 25b. a stale tab that shows up only after the window opened is closed too
-  const lateStray = fakeVscode.window.createTerminal({ name: "opencode" });
-  fakeVscode.window._openListeners[fakeVscode.window._openListeners.length - 1](lateStray);
-  assert.strictEqual(lateStray.disposed, true, "late stray closed");
-  assert.strictEqual(freshTerminal.disposed, false, "our terminal survives the watch");
+  // 25b. the restored tab is recognised by our env marker when the name differs
+  fakeVscode.window.terminals.length = 0;
+  const restoredByEnv = fakeVscode.window.createTerminal({
+    name: "zsh",
+    env: { OPENCODE_CALLER: "vscode" },
+  });
+  baseline = calls.createdTerminals.length;
+  reload().activate(newContext());
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(calls.createdTerminals.length, baseline, "still no duplicate");
+  assert.deepStrictEqual(
+    restoredByEnv.sent.map((s) => s.text),
+    ["opencode --continue"],
+    "env marker is enough to take the tab over",
+  );
+
+  // 25c. a group VS Code left empty is closed as a fallback
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.tabGroups.all = [
+    { viewColumn: 1, tabs: [{ input: "editor" }] },
+    { viewColumn: 2, tabs: [] },
+  ];
+  const executedBefore = calls.executed.length;
+  reload().activate(newContext());
+  await new Promise((r) => setTimeout(r, 4200));
+  assert.deepStrictEqual(
+    [
+      ...new Set(
+        calls.executed
+          .slice(executedBefore)
+          .filter((id) => id.includes("EditorGroup") || id.includes("closeEditorsAndGroup")),
+      ),
+    ],
+    ["workbench.action.focusSecondEditorGroup", "workbench.action.closeEditorsAndGroup"],
+    "the empty group is focused and closed",
+  );
+  fakeVscode.window.tabGroups.all = [];
 
   // 26. the "was open" flag is set when OpenCode starts and cleared when the
   //     user closes the last OpenCode terminal
@@ -612,26 +647,26 @@ const editor = (relPath, selection) => {
   );
   assert.strictEqual(
     props["opencode.terminalLocation"].default,
-    "panel",
-    "the panel is the default placement",
+    "editor",
+    "the editor group is the default placement",
   );
 
-  // 28. terminalLocation=editor keeps the official beside-the-editor placement
-  fakeVscode.workspace.settings.terminalLocation = "editor";
-  fakeVscode.window.terminals.length = 0;
-  await calls.registered["opencodeTerminal.openNew"]();
-  assert.deepStrictEqual(
-    calls.createdTerminals[calls.createdTerminals.length - 1].options.location,
-    { viewColumn: fakeVscode.ViewColumn.Beside, preserveFocus: false },
-    "editor placement uses the beside-the-editor location",
-  );
+  // 28. terminalLocation=panel moves the terminal to the integrated panel
   fakeVscode.workspace.settings.terminalLocation = "panel";
   fakeVscode.window.terminals.length = 0;
   await calls.registered["opencodeTerminal.openNew"]();
   assert.strictEqual(
     calls.createdTerminals[calls.createdTerminals.length - 1].options.location,
     fakeVscode.TerminalLocation.Panel,
-    "panel placement is used again after switching back",
+    "panel placement puts the terminal in the panel",
+  );
+  fakeVscode.workspace.settings.terminalLocation = "editor";
+  fakeVscode.window.terminals.length = 0;
+  await calls.registered["opencodeTerminal.openNew"]();
+  assert.deepStrictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].options.location,
+    { viewColumn: fakeVscode.ViewColumn.Beside, preserveFocus: false },
+    "editor placement gives the terminal its own group",
   );
 
   console.log("OK: all smoke tests passed");

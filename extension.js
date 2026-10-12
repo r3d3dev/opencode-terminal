@@ -15,6 +15,22 @@ const PORT_ENV = "_EXTENSION_OPENCODE_PORT";
 const SERVER_WAIT_MS = 2000;
 const POLL_INTERVAL_MS = 200;
 
+/**
+ * Focus commands by editor column, for the fallback that closes a group VS Code
+ * restored empty. `workbench.action.closeGroup` targets whichever group is
+ * active, so the group has to be focused first.
+ */
+const FOCUS_GROUP_COMMAND = {
+  1: "workbench.action.focusFirstEditorGroup",
+  2: "workbench.action.focusSecondEditorGroup",
+  3: "workbench.action.focusThirdEditorGroup",
+  4: "workbench.action.focusFourthEditorGroup",
+  5: "workbench.action.focusFifthEditorGroup",
+  6: "workbench.action.focusSixthEditorGroup",
+  7: "workbench.action.focusSeventhEditorGroup",
+  8: "workbench.action.focusEighthEditorGroup",
+};
+
 /** Timers for delayed sends, so they can be cancelled on deactivate. */
 const pendingTimers = new Set();
 
@@ -90,15 +106,15 @@ function activate(context) {
   };
 
   /**
-   * Where the terminal lives. The panel is the default: a terminal placed in the
-   * editor area is a terminal *editor* to VS Code, and the group it occupied
-   * comes back on the next window as an empty group even though the terminal
-   * itself was transient. The editor placement stays available as a setting.
+   * Where the terminal lives. The editor area is the default — the terminal gets
+   * a group of its own next to the editor, which is the point of a separate
+   * group for the agent. `panel` puts it in the integrated terminal panel
+   * instead.
    */
   const terminalLocation = () =>
-    config().get("terminalLocation", "panel") === "editor"
-      ? { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }
-      : vscode.TerminalLocation.Panel;
+    config().get("terminalLocation", "editor") === "panel"
+      ? vscode.TerminalLocation.Panel
+      : { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false };
 
   const createTerminal = async () => {
     const env = { OPENCODE_CALLER: "vscode" };
@@ -167,46 +183,79 @@ function activate(context) {
   };
 
   /**
-   * A terminal VS Code carried over from the previous window. A terminal that
-   * lived in the editor area is restored as an empty shell even when it was
-   * created transient, which is why a dead `opencode` tab can turn up in a group
-   * of its own next to the one we start: the process inside it is gone, only the
-   * shell is back.
+   * A terminal VS Code handed back from the previous window. The terminal editor
+   * comes back as a live shell — the `opencode` process inside it is gone, the
+   * terminal is not — so the restored tab has to be taken over rather than
+   * replaced: opening a second terminal leaves the restored tab empty and its
+   * editor group behind.
    */
-  const isStray = (terminal) =>
-    Boolean(terminal) && terminal.name === TERMINAL_NAME && !ours.has(terminal);
+  const isRestored = (terminal) =>
+    Boolean(terminal) &&
+    !ours.has(terminal) &&
+    !terminal.exitStatus &&
+    (terminal.name === TERMINAL_NAME ||
+      terminal.creationOptions?.env?.["OPENCODE_CALLER"] === "vscode");
 
-  const closeStrays = () => {
-    for (const terminal of vscode.window.terminals) {
-      if (isStray(terminal)) {
-        terminal.dispose();
+  /** How long the window may take to hand back the terminals of the last session. */
+  const RESTORE_WAIT_MS = 2000;
+
+  const waitForRestored = async () => {
+    const deadline = Date.now() + RESTORE_WAIT_MS;
+    for (;;) {
+      const found = vscode.window.terminals.find(isRestored);
+      if (found) {
+        return found;
       }
+      if (Date.now() >= deadline) {
+        return undefined;
+      }
+      await sleep(100);
     }
-  };
-
-  /** How long to wait for a restored tab that shows up after the window opens. */
-  const STRAY_WATCH_MS = 10000;
-
-  const watchStrays = () => {
-    closeStrays();
-    const subscription = vscode.window.onDidOpenTerminal(() => closeStrays());
-    const timer = setTimeout(() => {
-      pendingTimers.delete(timer);
-      subscription.dispose();
-    }, STRAY_WATCH_MS);
-    // Do not hold the extension host open just for the watch.
-    if (typeof timer.unref === "function") {
-      timer.unref();
-    }
-    pendingTimers.add(timer);
   };
 
   /**
-   * Start OpenCode when the window opens. Runs in a terminal of its own: the
-   * strays are closed first, and `--continue` brings back the project's last
-   * session. No automatic `@file` reference — nothing has been asked yet.
+   * Last resort for a group VS Code brought back empty anyway: focus it and close
+   * it. Best effort — a group that refuses to go is not worth failing the launch
+   * over.
    */
-  const startAtStartup = async () => {
+  const closeEmptyGroups = async () => {
+    try {
+      if ((vscode.window.tabGroups?.all?.length ?? 0) <= 1) {
+        return;
+      }
+      for (const group of vscode.window.tabGroups.all) {
+        const current = vscode.window.tabGroups.all.find(
+          (candidate) => candidate.viewColumn === group.viewColumn,
+        );
+        if (!current || current.tabs.length > 0) {
+          continue;
+        }
+        const focus = FOCUS_GROUP_COMMAND[current.viewColumn];
+        if (!focus) {
+          continue;
+        }
+        await vscode.commands.executeCommand(focus);
+        await vscode.commands.executeCommand("workbench.action.closeEditorsAndGroup");
+      }
+    } catch {
+      // Housekeeping only.
+    }
+  };
+
+  /**
+   * Start OpenCode when the window opens. `expectRestore` means the previous
+   * window had it running, so the restored tab is awaited and taken over; with
+   * no tab to take over, a terminal is opened beside the editor. Pressing the
+   * button stays `open`/`openNew` — nothing here reacts to a user action.
+   */
+  const startAtStartup = async (expectRestore) => {
+    const restored = expectRestore ? await waitForRestored() : undefined;
+    if (restored) {
+      restored.show();
+      startOpenCode(restored, portOf(restored));
+      return;
+    }
+
     const { terminal, port } = await createTerminal();
     terminal.show();
     startOpenCode(terminal, port);
@@ -357,8 +406,17 @@ function activate(context) {
   const wasOpen = context.workspaceState.get(STATE_KEY, false);
   const hasFolder = (vscode.workspace.workspaceFolders?.length ?? 0) > 0;
   if (hasFolder && openOnStartup !== "never" && (openOnStartup === "always" || wasOpen)) {
-    watchStrays();
-    void startAtStartup();
+    void startAtStartup(wasOpen);
+    // Clear a group the previous window left empty, in case its terminal could
+    // not be taken over. Runs after the layout has settled.
+    const timer = setTimeout(() => {
+      pendingTimers.delete(timer);
+      void closeEmptyGroups();
+    }, 4000);
+    if (typeof timer.unref === "function") {
+      timer.unref();
+    }
+    pendingTimers.add(timer);
   }
 }
 
