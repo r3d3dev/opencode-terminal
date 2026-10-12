@@ -116,6 +116,7 @@ function activate(context) {
         dark: vscode.Uri.file(context.asAbsolutePath("images/button-light.svg")),
       },
     });
+    rememberStarted(terminal);
     return { terminal, port };
   };
 
@@ -137,6 +138,40 @@ function activate(context) {
 
   const startOpenCode = (terminal, port) => {
     terminal.sendText(startCommand(port));
+  };
+
+  /**
+   * Terminals started in this window. Used to remember, across restarts, whether
+   * OpenCode was open when the window closed — the signal that decides whether
+   * to bring it back up on the next start. `onDidCloseTerminal` is not fired for
+   * terminals torn down by the shutdown itself, so a window closed with the
+   * terminal running keeps the flag set.
+   */
+  const STATE_KEY = "opencode.wasOpen";
+  const ours = new Set();
+
+  const rememberStarted = (terminal) => {
+    ours.add(terminal);
+    void context.workspaceState.update(STATE_KEY, true);
+  };
+
+  /**
+   * Bring OpenCode back up on window open. VS Code can hand back a terminal it
+   * restored as a bare shell (the process inside it is gone), so when a live
+   * `opencode` terminal is already there we run the command in it instead of
+   * opening a second tab.
+   */
+  const reopen = async () => {
+    const existing = vscode.window.terminals.find(isLiveTerminal);
+    if (existing) {
+      existing.show();
+      startOpenCode(existing, portOf(existing));
+      return;
+    }
+
+    const { terminal, port } = await createTerminal();
+    terminal.show();
+    startOpenCode(terminal, port);
   };
 
   /** Send text once OpenCode had time to boot in a freshly created terminal. */
@@ -268,14 +303,23 @@ function activate(context) {
     vscode.commands.registerCommand("opencodeTerminal.open", open),
     vscode.commands.registerCommand("opencodeTerminal.openNew", openNew),
     vscode.commands.registerCommand("opencodeTerminal.insertFileRef", insertFileRef),
+    vscode.window.onDidCloseTerminal((terminal) => {
+      // Ran out of OpenCode terminals: the next window should not bring one up.
+      if (ours.delete(terminal) && ours.size === 0) {
+        void context.workspaceState.update(STATE_KEY, false);
+      }
+    }),
   );
 
-  // Bring OpenCode up as soon as a window with a workspace folder opens, so
-  // reopening VS Code lands on a running agent with the project's last session
-  // instead of an empty shell. No automatic `@file` reference here: the user
-  // has not asked for anything yet.
-  if (config().get("autoStart", true) && (vscode.workspace.workspaceFolders?.length ?? 0) > 0) {
-    void open({ autoRef: false });
+  // Decide whether to bring OpenCode up on window open. Default is `restore`:
+  // only when it was running here when the window closed, so reopening the
+  // window lands on the running agent and a workspace that never used it stays
+  // clean. No automatic `@file` reference here — nothing has been asked yet.
+  const openOnStartup = config().get("openOnStartup", "restore");
+  const wasOpen = context.workspaceState.get(STATE_KEY, false);
+  const hasFolder = (vscode.workspace.workspaceFolders?.length ?? 0) > 0;
+  if (hasFolder && openOnStartup !== "never" && (openOnStartup === "always" || wasOpen)) {
+    void reopen();
   }
 }
 

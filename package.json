@@ -168,10 +168,20 @@
           "default": true,
           "markdownDescription": "Automatically append an `@file` reference for the active editor when a **new** OpenCode terminal is opened."
         },
-        "opencode.autoStart": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Start OpenCode automatically when a VS Code window with a workspace folder opens. The terminal is transient (not restored as a bare shell by VS Code), so without this you would reopen the window to an empty shell instead of a running agent. Turn it off to start OpenCode only from the button or the shortcut."
+        "opencode.openOnStartup": {
+          "type": "string",
+          "enum": [
+            "restore",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Bring OpenCode back up only if it was running in this workspace when the window was closed.",
+            "Always start OpenCode when a window with a workspace folder opens, even if it was not running before.",
+            "Never start OpenCode automatically; use the button or the shortcut."
+          ],
+          "default": "restore",
+          "markdownDescription": "Whether OpenCode starts by itself when a VS Code window opens. `restore` (default) reopens it only in workspaces where it was left running, so the terminal comes back as a running agent instead of an idle shell. `always` starts it in every workspace. `never` leaves it to the button and the shortcut."
         },
         "opencode.continueLastSession": {
           "type": "boolean",

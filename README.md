@@ -47,16 +47,22 @@ workspace, its `@file` reference is appended automatically.
 
 Reopen VS Code and you would normally get your terminal tab back, but as an idle
 shell: VS Code restores the shell, not the `opencode` process that was running
-inside it. So the extension starts OpenCode itself.
+inside it.
 
-The terminal is created as *transient*, which means VS Code does not resurrect it
-as a bare shell on the next window. Instead, on startup the extension opens a
-fresh terminal and runs `opencode --continue`, so you land on the running agent
-with the last session of that project. No automatic `@file` reference is added —
-nothing has been asked for yet.
+So the extension remembers whether OpenCode was open when the window closed, and
+on the next start brings it back running `opencode --continue` — the last session
+of that project. A workspace where OpenCode was *not* running is left clean, and
+no extra empty tab is left behind: if VS Code hands a terminal back as a bare
+shell, the command runs in that very tab instead of a second one being opened.
 
-- `opencode.autoStart: false` — do not start anything on window open; use the
-  button or the shortcut.
+The terminal is *transient*, so VS Code never restores it as a dead shell.
+
+- `opencode.openOnStartup: "restore"` (default) — reopen only in a workspace where
+  it was left running.
+- `opencode.openOnStartup: "always"` — start in every workspace, even one where
+  OpenCode was not running before.
+- `opencode.openOnStartup: "never"` — never start on window open; use the button
+  or the shortcut.
 - `opencode.continueLastSession: false` — always start a new session.
 
 Sessions are per project: `--continue` picks the most recent session of the
@@ -93,7 +99,7 @@ terminal title actions (`+`, split, kill).
 | Setting | Default | Description |
 | --- | --- | --- |
 | `opencode.command` | `opencode` | Command used to start OpenCode (absolute path or shim if it is not on `PATH`). |
-| `opencode.autoStart` | `true` | Start OpenCode automatically when a window with a workspace folder opens. Turn it off to start only from the button or the shortcut. |
+| `opencode.openOnStartup` | `restore` | When OpenCode starts by itself on window open: `restore` (only where it was left running), `always`, or `never`. |
 | `opencode.continueLastSession` | `true` | Launch with `--continue`, resuming the most recent session of the current project. With no session yet, the CLI just starts a new one. |
 | `opencode.integration` | `typed` | `typed` types the `@file` reference into the terminal (any CLI version). `port` starts OpenCode with `--port <free port>` and appends the reference over HTTP — the OpenCode CLI v1 style. |
 | `opencode.autoIncludeFile` | `true` | Automatically append the active `@file` reference when opening a **new** terminal. |

@@ -49,6 +49,11 @@ const fakeVscode = {
     showInformationMessage(msg) {
       calls.messages.push(msg);
     },
+    _closeListeners: [],
+    onDidCloseTerminal(listener) {
+      this._closeListeners.push(listener);
+      return { dispose() {} };
+    },
   },
   workspace: {
     settings: {
@@ -56,6 +61,7 @@ const fakeVscode = {
       autoIncludeFile: true,
       fileRefDelay: 0, // send immediately so the test is synchronous
       autoStart: false, // the auto-start on activation is tested separately
+      openOnStartup: "never",
       continueLastSession: false,
     },
     getConfiguration() {
@@ -104,6 +110,10 @@ const ext = require(path.join(__dirname, "..", "extension.js"));
 const context = {
   subscriptions: [],
   asAbsolutePath: (p) => path.join(__dirname, "..", p),
+  workspaceState: {
+    get: (_key, fallback) => fallback,
+    update: () => Promise.resolve(),
+  },
 };
 ext.activate(context);
 
@@ -117,7 +127,11 @@ assert.deepStrictEqual(
   ],
   "all three commands registered",
 );
-assert.strictEqual(context.subscriptions.length, 3, "subscriptions pushed");
+assert.strictEqual(
+  context.subscriptions.length,
+  4,
+  "subscriptions pushed (3 commands + terminal-close listener)",
+);
 
 const editor = (relPath, selection) => {
   fakeVscode.workspace._relPath = relPath;
@@ -421,63 +435,139 @@ const editor = (relPath, selection) => {
   // 23. the terminal is transient, so VS Code never restores a bare shell
   assert.strictEqual(t6.options.isTransient, true, "terminal is transient");
 
-  // 24. autoStart: a fresh activation opens OpenCode for the workspace, without
-  //     an automatic @file reference (nothing has been asked for yet)
+  // 24. window state decides the startup behaviour. `restore` (default) opens
+  //     OpenCode only where it was running when the window closed.
   const reload = () => {
     const resolved = require.resolve(path.join(__dirname, "..", "extension.js"));
     delete require.cache[resolved];
     return require(resolved);
   };
-  const context2 = () => ({
+  fakeVscode.workspace.settings.openOnStartup = "restore";
+  fakeVscode.workspace.settings.continueLastSession = true;
+  fakeVscode.workspace.settings.command = "opencode";
+  fakeVscode.window.activeTextEditor = editor("src/app.ts");
+
+  const startState = { wasOpen: true };
+  const newContext = () => ({
     subscriptions: [],
     asAbsolutePath: (p) => path.join(__dirname, "..", p),
+    workspaceState: {
+      get: (key, fallback) => (key === "opencode.wasOpen" ? startState.wasOpen : fallback),
+      update: (key, value) => {
+        if (key === "opencode.wasOpen") startState.wasOpen = value;
+        return Promise.resolve();
+      },
+    },
   });
-  fakeVscode.workspace.settings.autoStart = true;
+
+  // restore + it was open -> comes back, resuming the session, no auto ref
   fakeVscode.window.terminals.length = 0;
-  fakeVscode.window.activeTextEditor = editor("src/app.ts");
-  const beforeAuto = calls.createdTerminals.length;
-  reload().activate(context2());
-  await new Promise((r) => setImmediate(r)); // let the void open() finish
-  assert.strictEqual(
-    calls.createdTerminals.length,
-    beforeAuto + 1,
-    "autoStart opens a terminal on activation",
-  );
+  let baseline = calls.createdTerminals.length;
+  reload().activate(newContext());
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(baseline + 1, calls.createdTerminals.length, "restore opens a terminal");
   assert.deepStrictEqual(
     calls.createdTerminals[calls.createdTerminals.length - 1].sent.map((s) => s.text),
-    ["opencode"],
-    "autoStart launches opencode and sends no auto ref",
+    ["opencode --continue"],
+    "restore resumes the last session and sends no auto ref",
   );
 
-  // 25. autoStart=false -> activation stays quiet
-  fakeVscode.workspace.settings.autoStart = false;
+  // restore + it was not open -> the window stays clean
+  startState.wasOpen = false;
   fakeVscode.window.terminals.length = 0;
-  const beforeQuiet = calls.createdTerminals.length;
-  reload().activate(context2());
+  baseline = calls.createdTerminals.length;
+  reload().activate(newContext());
   await new Promise((r) => setImmediate(r));
   assert.strictEqual(
     calls.createdTerminals.length,
-    beforeQuiet,
-    "no terminal when autoStart is off",
+    baseline,
+    "restore with nothing open starts nothing",
   );
 
-  // 26. autoStart=true but no workspace folder -> nothing is opened
-  fakeVscode.workspace.settings.autoStart = true;
+  // always -> starts even though it was not open
+  startState.wasOpen = false;
+  fakeVscode.workspace.settings.openOnStartup = "always";
+  fakeVscode.window.terminals.length = 0;
+  baseline = calls.createdTerminals.length;
+  reload().activate(newContext());
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(baseline + 1, calls.createdTerminals.length, "always starts on window open");
+
+  // never -> stays quiet even though it was open
+  startState.wasOpen = true;
+  fakeVscode.workspace.settings.openOnStartup = "never";
+  fakeVscode.window.terminals.length = 0;
+  baseline = calls.createdTerminals.length;
+  reload().activate(newContext());
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(
+    calls.createdTerminals.length,
+    baseline,
+    "never starts nothing even when it was open",
+  );
+
+  // no workspace folder -> nothing, whatever the mode
+  fakeVscode.workspace.settings.openOnStartup = "always";
   fakeVscode.workspace.workspaceFolders = [];
   fakeVscode.window.terminals.length = 0;
-  const beforeNoFolder = calls.createdTerminals.length;
-  reload().activate(context2());
+  baseline = calls.createdTerminals.length;
+  reload().activate(newContext());
   await new Promise((r) => setImmediate(r));
   assert.strictEqual(
     calls.createdTerminals.length,
-    beforeNoFolder,
+    baseline,
     "no terminal without a workspace folder",
   );
   fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
 
-  // 27. manifest: autoStart is contributed and on by default
+  // 25. a terminal VS Code handed back as an empty shell is reused instead of
+  //     opening a second tab
+  fakeVscode.workspace.settings.openOnStartup = "restore";
+  startState.wasOpen = true;
+  fakeVscode.window.terminals.length = 0;
+  const leftover = fakeVscode.window.createTerminal({ name: "opencode" });
+  baseline = calls.createdTerminals.length;
+  reload().activate(newContext());
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(calls.createdTerminals.length, baseline, "restored terminal reused, not duplicated");
+  assert.deepStrictEqual(
+    leftover.sent.map((s) => s.text),
+    ["opencode --continue"],
+    "the command runs in the restored shell",
+  );
+
+  // 26. the "was open" flag is set when OpenCode starts and cleared when the
+  //     user closes the last OpenCode terminal
+  fakeVscode.workspace.settings.openOnStartup = "never";
+  const flags = [];
+  const flagContext = {
+    subscriptions: [],
+    asAbsolutePath: (p) => path.join(__dirname, "..", p),
+    workspaceState: {
+      get: (_key, fallback) => fallback,
+      update: (key, value) => {
+        if (key === "opencode.wasOpen") flags.push(value);
+        return Promise.resolve();
+      },
+    },
+  };
+  fakeVscode.window.terminals.length = 0;
+  reload().activate(flagContext);
+  await calls.registered["opencodeTerminal.openNew"]();
+  const startedTerminal = calls.createdTerminals[calls.createdTerminals.length - 1];
+  assert.deepStrictEqual(flags, [true], "flag set when OpenCode starts");
+  fakeVscode.window.terminals.length = 0;
+  for (const listener of fakeVscode.window._closeListeners) listener(startedTerminal);
+  assert.deepStrictEqual(flags, [true, false], "flag cleared when the last terminal closes");
+
+  // 27. manifest: the startup mode is contributed with `restore` as the default
   const props = manifest.contributes.configuration.properties;
-  assert.strictEqual(props["opencode.autoStart"].default, true, "autoStart defaults on");
+  assert.strictEqual(props["opencode.openOnStartup"].default, "restore", "restore is the default");
+  assert.deepStrictEqual(
+    props["opencode.openOnStartup"].enum,
+    ["restore", "always", "never"],
+    "all three modes documented",
+  );
   assert.strictEqual(
     props["opencode.continueLastSession"].default,
     true,
@@ -485,7 +575,7 @@ const editor = (relPath, selection) => {
   );
   assert.ok(
     manifest.activationEvents.includes("onStartupFinished"),
-    "activates on startup for autoStart",
+    "activates on startup for the startup mode",
   );
 
   console.log("OK: all smoke tests passed");

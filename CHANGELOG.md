@@ -3,13 +3,17 @@
 ## 0.1.5 — 2026-10-12
 
 - Reopening VS Code now lands on a running `opencode` instead of an idle shell.
-  The terminal is created as transient (VS Code no longer restores it as a bare
-  shell) and the extension starts OpenCode itself on window open.
+  The extension remembers whether OpenCode was open when the window closed and
+  brings it back running `--continue`.
+- No extra empty tab: if VS Code hands a terminal back as a bare shell, the
+  launch command runs in that tab instead of a second one being opened. The
+  terminal is created as transient so VS Code never restores it as a dead shell.
+- New `opencode.openOnStartup` (default `restore`): `restore` reopens only in a
+  workspace where OpenCode was left running, `always` starts in every workspace,
+  `never` leaves it to the button and the shortcut.
 - New `opencode.continueLastSession` (default `true`): launch with `--continue`
   and resume the most recent session of the current project. With no session yet
   the CLI simply starts a new one.
-- New `opencode.autoStart` (default `true`): start OpenCode when a window with a
-  workspace folder opens. Turn it off to keep the manual button/shortcut only.
 
 ## 0.1.4 — 2026-10-05
 
