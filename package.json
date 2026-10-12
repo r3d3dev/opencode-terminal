@@ -126,14 +126,14 @@
       },
       {
         "command": "opencodeTerminal.insertFileRef",
-        "key": "ctrl+alt+k",
-        "mac": "cmd+alt+k"
+        "key": "ctrl+alt+p",
+        "mac": "ctrl+cmd+p",
+        "when": "!filesExplorerFocus"
       },
       {
         "command": "opencodeTerminal.insertFileRef",
-        "key": "ctrl+alt+p",
-        "mac": "ctrl+cmd+p",
-        "when": "editorTextFocus"
+        "key": "ctrl+alt+k",
+        "mac": "cmd+alt+k"
       },
       {
         "command": "opencodeTerminal.addFiles",

@@ -444,10 +444,10 @@ function activate(context) {
 
   /**
    * What the editor contributes: the selected text when something is selected,
-   * an `@file` reference otherwise. The text goes in through the same channel as
-   * a reference, and VS Code wraps a non-executing `sendText` in bracketed paste
-   * markers, so a multi-line snippet arrives as one block instead of each line
-   * being submitted.
+   * an `@file` reference otherwise. The text is trimmed — a selection of whole
+   * lines carries a trailing line break, and the CLI submits the prompt when a
+   * pasted block ends with one. VS Code wraps a non-executing `sendText` in
+   * bracketed paste markers, so the inner line breaks arrive as a paste.
    */
   const editorPayload = () => {
     const editor = vscode.window.activeTextEditor;
@@ -455,8 +455,8 @@ function activate(context) {
       return undefined;
     }
     if (!editor.selection.isEmpty) {
-      const selected = editor.document.getText(editor.selection);
-      if (selected.trim()) {
+      const selected = editor.document.getText(editor.selection).trim();
+      if (selected) {
         return selected;
       }
     }

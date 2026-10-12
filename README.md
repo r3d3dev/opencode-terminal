@@ -49,6 +49,10 @@ workspace, its `@file` reference is appended automatically.
 sends what is selected there. The same entry sits in both right-click menus — the
 editor's and the Explorer's — so it can be reached with the mouse too.
 
+The selected text is sent as one block and trimmed: selecting whole lines includes
+the closing line break, and OpenCode submits the prompt when pasted text ends with
+one. Nothing is submitted until you press Enter yourself.
+
 | Focus | What is sent |
 | --- | --- |
 | Editor, text selected | The **selected text itself**. A multi-line snippet arrives as one block. |

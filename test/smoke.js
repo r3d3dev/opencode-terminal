@@ -774,8 +774,10 @@ const editor = (relPath, selection) => {
     "the context menu selection becomes references",
   );
 
-  // 31. the editor still wins when asked for it, and a selection goes as text
-  fakeVscode.workspace._selectionText = "function main() {\n  return 1;\n}";
+  // 31. the editor still wins when asked for it, and a selection goes as text —
+  //     trimmed, because the CLI submits the prompt when a pasted block ends with
+  //     a line break, and selecting whole lines includes one
+  fakeVscode.workspace._selectionText = "function main() {\n  return 1;\n}\n";
   fakeVscode.window.activeTextEditor = editor("src/app.ts", {
     isEmpty: false,
     start: { line: 2, character: 0 },
@@ -787,7 +789,7 @@ const editor = (relPath, selection) => {
   assert.deepStrictEqual(
     editorTerminal.sent.map((s) => s.text),
     ["function main() {\n  return 1;\n}"],
-    "the selected text is sent as one block",
+    "the selected text is sent trimmed, inner line breaks kept",
   );
 
   // 32. keybindings: ctrl+cmd+o / ctrl+cmd+n, and ctrl+cmd+p in both contexts
@@ -807,7 +809,11 @@ const editor = (relPath, selection) => {
   assert.strictEqual(refChords.length, 2, "ctrl+cmd+p is bound in both contexts");
   const editorChord = refChords.find((k) => k.command === "opencodeTerminal.insertFileRef");
   assert.ok(editorChord, "the editor context uses the editor command");
-  assert.strictEqual(editorChord.when, "editorTextFocus", "editor focus gate");
+  assert.strictEqual(
+    editorChord.when,
+    "!filesExplorerFocus",
+    "the editor chord stays live while a menu is open, so menus show it, and yields to the Explorer command there",
+  );
   const explorerChord = refChords.find((k) => k.command === "opencodeTerminal.addFiles");
   assert.ok(explorerChord, "the Explorer context has its own command");
   assert.ok(
