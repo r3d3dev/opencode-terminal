@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6 — 2026-10-12
+
+- The extension icon is back to its previous proportions. Matching the official
+  scheme made the mark fill too much of the tile, which reads as cramped in a
+  store listing; the icon keeps its margins again. The panel buttons keep the
+  official scheme (window 2:3, frame a quarter of the width).
+
 ## 0.1.5 — 2026-10-12
 
 - Reopening VS Code now lands on a running `opencode` instead of an idle shell.

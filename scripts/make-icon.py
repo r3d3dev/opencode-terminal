@@ -21,12 +21,13 @@ PANEL = (63, 63, 89)      # #3F3F59 lit panel
 GLYPH = (255, 255, 255)
 
 U = 28
-# Mark proportions follow the official extension: the window is 2:3 and the
-# frame is a quarter of the mark's width (thickness = 1.5 U against a 6 U x 9 U
-# window). Everything inside the window is unchanged, only the frame grew.
-OW, OH = 12 * U, 15 * U
+# Icon proportions stay as they were: the mark keeps its margins inside the
+# rounded tile, which is what reads well in a store listing. The panel buttons
+# follow the official extension's scheme instead (window 2:3, frame a quarter of
+# the width) — see images/button-*.svg.
+OW, OH = 10 * U, 13 * U
 OX, OY = (GRID - OW) // 2, (GRID - OH) // 2  # centre the mark inside the icon
-CX, CY = OX + 3 * U, OY + 3 * U  # counter
+CX, CY = OX + 2 * U, OY + 2 * U  # counter
 CELLS = [(1, 4), (2, 5), (1, 6), (3, 7), (4, 7)]
 RADIUS = 104
 
