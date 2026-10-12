@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.7 — 2026-10-12
+
+- `Cmd+Ctrl+O` (`Ctrl+Alt+O`) also opens a new OpenCode terminal.
+- `Cmd+Ctrl+P` (`Ctrl+Alt+P`) sends references to the OpenCode terminal: the
+  selected lines when text is selected, the file itself otherwise, and every
+  selected file when the Explorer has focus. VS Code keeps the Explorer
+  selection to itself, so those paths are read back through the clipboard, which
+  is restored afterwards.
+- The Explorer's right-click menu carries the same command, so a multi-selection
+  works without the keyboard. Duplicate paths are collapsed.
+
 ## 0.1.6 — 2026-10-12
 
 - The extension icon is back to its previous proportions. Matching the official

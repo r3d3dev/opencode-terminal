@@ -91,8 +91,11 @@ const fakeVscode = {
     getWorkspaceFolder() {
       return fakeVscode.workspace._folder;
     },
-    asRelativePath(_uri, includeWorkspaceFolder) {
+    asRelativePath(uri, includeWorkspaceFolder) {
       fakeVscode.workspace._lastIncludeFolder = includeWorkspaceFolder;
+      if (uri && typeof uri === "object" && uri.fsPath) {
+        return uri.fsPath.replace(/^.*?\/proj\//, "");
+      }
       return fakeVscode.workspace._relPath;
     },
   },
@@ -103,7 +106,23 @@ const fakeVscode = {
     },
     executeCommand(id) {
       calls.executed.push(id);
+      if (id === "copyFilePath") {
+        // VS Code copies the focused Explorer selection to the clipboard.
+        fakeVscode.env.clipboard._text = fakeVscode.workspace._explorerCopy || "";
+      }
       return Promise.resolve();
+    },
+  },
+  env: {
+    clipboard: {
+      _text: "",
+      readText() {
+        return Promise.resolve(this._text);
+      },
+      writeText(text) {
+        this._text = text;
+        return Promise.resolve();
+      },
     },
   },
 };
@@ -688,6 +707,86 @@ const editor = (relPath, selection) => {
     { viewColumn: fakeVscode.ViewColumn.Beside, preserveFocus: false },
     "editor placement gives the terminal its own group",
   );
+
+  // 29. references from the Explorer: the selection arrives through the
+  //     clipboard, and the clipboard is put back the way it was
+  fakeVscode.workspace.settings.integration = "typed";
+  fakeVscode.workspace.settings.continueLastSession = false;
+  fakeVscode.workspace.settings.autoIncludeFile = true;
+  fakeVscode.workspace.settings.fileRefDelay = 0;
+  fakeVscode.workspace._folder = { uri: "file:///proj" };
+  fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+  fakeVscode.window.activeTextEditor = undefined;
+  fakeVscode.window.activeTerminal = undefined;
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.workspace._explorerCopy = "/proj/src/a.ts\n/proj/src/b.ts";
+  fakeVscode.env.clipboard._text = "the user's clipboard";
+  await calls.registered["opencodeTerminal.insertFileRef"]("explorer");
+  const explorerTerminal = calls.createdTerminals[calls.createdTerminals.length - 1];
+  assert.deepStrictEqual(
+    explorerTerminal.sent.map((s) => s.text),
+    ["opencode", "@src/a.ts @src/b.ts"],
+    "the Explorer selection becomes references",
+  );
+  assert.strictEqual(
+    fakeVscode.env.clipboard._text,
+    "the user's clipboard",
+    "the clipboard is restored",
+  );
+
+  // 30. the Explorer context menu hands the selected URIs straight over
+  fakeVscode.window.terminals.length = 0;
+  fakeVscode.window.activeTerminal = undefined;
+  await calls.registered["opencodeTerminal.insertFileRef"](
+    { fsPath: "/proj/src/c.ts" },
+    [{ fsPath: "/proj/src/c.ts" }, { fsPath: "/proj/src/d.ts" }],
+  );
+  const menuTerminal = calls.createdTerminals[calls.createdTerminals.length - 1];
+  assert.deepStrictEqual(
+    menuTerminal.sent.map((s) => s.text),
+    ["opencode", "@src/c.ts @src/d.ts"],
+    "the context menu selection becomes references",
+  );
+
+  // 31. the editor still wins when asked for it, and a selection becomes lines
+  fakeVscode.window.activeTextEditor = editor("src/app.ts", {
+    isEmpty: false,
+    start: { line: 2, character: 0 },
+    end: { line: 6, character: 0 },
+  });
+  const editorTerminal = fakeVscode.window.createTerminal({ name: "opencode" });
+  fakeVscode.window.activeTerminal = editorTerminal;
+  await calls.registered["opencodeTerminal.insertFileRef"]("editor");
+  assert.deepStrictEqual(
+    editorTerminal.sent.map((s) => s.text),
+    ["@src/app.ts#L3-7"],
+    "the selected lines are referenced",
+  );
+
+  // 32. keybindings: an extra chord for openNew and ctrl+cmd+p in both contexts
+  const chords = manifest.contributes.keybindings;
+  const openNewAlt = chords.find(
+    (k) => k.command === "opencodeTerminal.openNew" && k.mac === "ctrl+cmd+o",
+  );
+  assert.ok(openNewAlt, "ctrl+cmd+o opens a new terminal");
+  assert.strictEqual(openNewAlt.key, "ctrl+alt+o", "cross-platform counterpart");
+  const refChords = chords.filter(
+    (k) => k.command === "opencodeTerminal.insertFileRef" && k.mac === "ctrl+cmd+p",
+  );
+  assert.strictEqual(refChords.length, 2, "ctrl+cmd+p is bound in both contexts");
+  assert.ok(
+    refChords.some((k) => k.when === "editorTextFocus"),
+    "the editor context is bound",
+  );
+  const explorerChord = refChords.find((k) => (k.when || "").includes("filesExplorerFocus"));
+  assert.ok(explorerChord, "the Explorer context is bound");
+  assert.strictEqual(explorerChord.args, "explorer", "the Explorer binding asks for the Explorer");
+
+  // 33. the Explorer right-click menu carries the command
+  const explorerMenuItem = (manifest.contributes.menus["explorer/context"] || []).find(
+    (i) => i.command === "opencodeTerminal.insertFileRef",
+  );
+  assert.ok(explorerMenuItem, "Explorer context menu entry present");
 
   console.log("OK: all smoke tests passed");
 })().catch((err) => {

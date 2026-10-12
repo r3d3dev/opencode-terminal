@@ -37,11 +37,30 @@ Community build, not affiliated with the OpenCode project.
 | Command | macOS | Windows / Linux | Description |
 | --- | --- | --- | --- |
 | **OpenCode: Open in Terminal** | `Cmd+Esc` | `Ctrl+Esc` | Open OpenCode in a group of its own beside the editor; reuses an existing `opencode` terminal. |
-| **OpenCode: Open in New Terminal** | `Cmd+Shift+Esc` | `Ctrl+Shift+Esc` | Always start a fresh terminal with OpenCode. |
-| **OpenCode: Insert @-File Reference** | `Cmd+Alt+K` | `Ctrl+Alt+K` | Insert `@relative/path` (plus `#L10` / `#L10-20` for the current selection) into the OpenCode terminal. Opens a terminal first if none exists. |
+| **OpenCode: Open in New Terminal** | `Cmd+Shift+Esc`, `Cmd+Ctrl+O` | `Ctrl+Shift+Esc`, `Ctrl+Alt+O` | Always start a fresh terminal with OpenCode. |
+| **OpenCode: Insert @-File Reference** | `Cmd+Alt+K`, `Cmd+Ctrl+P` | `Ctrl+Alt+K`, `Ctrl+Alt+P` | Send file references to the OpenCode terminal — see *Sending files* below. Opens a terminal first if none exists. |
 
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
+
+## Sending files to OpenCode
+
+`Cmd+Alt+K` (`Ctrl+Alt+K`) and `Cmd+Ctrl+P` (`Ctrl+Alt+P`) are the same command:
+it looks at where the focus is and sends what is selected there.
+
+| Focus | What is sent |
+| --- | --- |
+| Editor, text selected | `@relative/path#L10-20` for the selected lines (a single line becomes `#L10`). |
+| Editor, nothing selected | `@relative/path` for that file. |
+| Explorer, one or more files | `@relative/path` for every selected file. |
+| Explorer right-click | The same, from the context menu — no keyboard needed. |
+
+Several files arrive as one line: `@src/a.ts @src/b.ts`. Duplicates are dropped,
+so the clicked file is not repeated when it is also part of the selection.
+
+VS Code does not expose the Explorer selection to extensions, so the keyboard
+path reads the paths back from the clipboard after asking VS Code to copy them,
+and puts the clipboard back as it was.
 
 ## Reopening the window
 

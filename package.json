@@ -2,7 +2,7 @@
   "name": "opencode-terminal-cli",
   "displayName": "OpenCode v2 Terminal",
   "description": "OpenCode terminal launcher for VS Code: open the OpenCode CLI agent in the integrated terminal with one shortcut and insert @file references from the editor. A dependency-free alternative to the official sst-dev.opencode extension, which stopped working with OpenCode CLI v2. Works with CLI v1 and v2.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "r3d3dev",
   "license": "MIT",
   "author": {
@@ -111,9 +111,27 @@
         "mac": "cmd+shift+escape"
       },
       {
+        "command": "opencodeTerminal.openNew",
+        "key": "ctrl+alt+o",
+        "mac": "ctrl+cmd+o"
+      },
+      {
         "command": "opencodeTerminal.insertFileRef",
         "key": "ctrl+alt+k",
         "mac": "cmd+alt+k"
+      },
+      {
+        "command": "opencodeTerminal.insertFileRef",
+        "key": "ctrl+alt+p",
+        "mac": "ctrl+cmd+p",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "opencodeTerminal.insertFileRef",
+        "key": "ctrl+alt+p",
+        "mac": "ctrl+cmd+p",
+        "when": "foldersViewVisible && filesExplorerFocus && !inputFocus",
+        "args": "explorer"
       }
     ],
     "menus": {
@@ -128,6 +146,12 @@
           "command": "opencodeTerminal.open",
           "group": "navigation",
           "when": "view == terminal"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "opencodeTerminal.insertFileRef",
+          "group": "navigation"
         }
       ],
       "commandPalette": [

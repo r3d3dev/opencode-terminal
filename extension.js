@@ -382,34 +382,102 @@ function activate(context) {
     }
   };
 
+  /** Terminal to put references into: the OpenCode one, opened when there is none. */
+  const targetTerminal = async () => {
+    const existing = isLiveTerminal(vscode.window.activeTerminal)
+      ? vscode.window.activeTerminal
+      : vscode.window.terminals.find(isLiveTerminal);
+    if (existing) {
+      return { terminal: existing, port: portOf(existing), fresh: false };
+    }
+
+    const created = await createTerminal();
+    created.terminal.show();
+    startOpenCode(created.terminal, created.port);
+    return { terminal: created.terminal, port: created.port, fresh: true };
+  };
+
+  /** An `@relative/path` reference, or undefined for a file outside the workspace. */
+  const pathToRef = (fsPath) => {
+    const uri = vscode.Uri.file(fsPath);
+    if (!vscode.workspace.getWorkspaceFolder(uri)) {
+      return undefined;
+    }
+    const multiRoot = (vscode.workspace.workspaceFolders?.length ?? 0) > 1;
+    return `@${vscode.workspace.asRelativePath(uri, multiRoot)}`;
+  };
+
   /**
-   * Insert an @file reference for the active editor into the OpenCode
-   * terminal. Falls back to opening a terminal when none exists yet.
+   * References for the files selected in the Explorer. VS Code keeps that
+   * selection to itself, so the paths are read back from the clipboard after
+   * asking VS Code to copy them; the clipboard is put back the way it was.
    */
-  const insertFileRef = async () => {
-    const ref = getFileRef();
-    if (!ref) {
+  const explorerRefs = async () => {
+    let saved;
+    try {
+      saved = await vscode.env.clipboard.readText();
+    } catch {
+      saved = undefined;
+    }
+
+    try {
+      await vscode.commands.executeCommand("copyFilePath");
+      const copied = await vscode.env.clipboard.readText();
+      return copied
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map(pathToRef)
+        .filter(Boolean);
+    } catch {
+      return [];
+    } finally {
+      if (saved !== undefined) {
+        try {
+          await vscode.env.clipboard.writeText(saved);
+        } catch {
+          // Restoring the clipboard is courtesy; never fail the command over it.
+        }
+      }
+    }
+  };
+
+  /**
+   * Put `@file` references into the OpenCode terminal. The files come from the
+   * Explorer context menu (which passes them as arguments), from the Explorer
+   * selection, or from the active editor — with a line range when text is
+   * selected. Falls back to opening a terminal when none exists yet.
+   */
+  const insertFileRef = async (...args) => {
+    const flat = args.flat().filter(Boolean);
+    const uris = flat.filter((arg) => typeof arg === "object" && arg.fsPath);
+    const asked = flat.find((arg) => arg === "explorer" || arg === "editor");
+
+    const refs = [];
+    if (uris.length) {
+      refs.push(...uris.map((uri) => pathToRef(uri.fsPath)).filter(Boolean));
+    } else if (asked === "editor" || (!asked && vscode.window.activeTextEditor)) {
+      const ref = getFileRef();
+      if (ref) {
+        refs.push(ref);
+      }
+    } else {
+      refs.push(...(await explorerRefs()));
+    }
+
+    // The Explorer menu passes both the clicked URI and the whole selection, so
+    // the same file can arrive twice.
+    const unique = [...new Set(refs)];
+    if (!unique.length) {
       vscode.window.showInformationMessage(
-        "OpenCode: open a file that belongs to a workspace folder first.",
+        "OpenCode: select a file in the editor or in the Explorer first.",
       );
       return;
     }
 
-    let terminal = isLiveTerminal(vscode.window.activeTerminal)
-      ? vscode.window.activeTerminal
-      : vscode.window.terminals.find(isLiveTerminal);
-
-    if (!terminal) {
-      const created = await createTerminal();
-      terminal = created.terminal;
-      terminal.show();
-      startOpenCode(terminal, created.port);
-      await deliverRef(terminal, ref, created.port, true);
-      return;
-    }
-
+    const { terminal, port, fresh } = await targetTerminal();
     terminal.show();
-    await deliverRef(terminal, ref, portOf(terminal), false);
+    await deliverRef(terminal, unique.join(" "), port, fresh);
   };
 
   context.subscriptions.push(
