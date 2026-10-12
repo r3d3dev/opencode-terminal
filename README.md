@@ -24,6 +24,18 @@ never passes version-specific flags, it behaves the same with CLI v1 and v2; if
 you keep two installs side by side, point `opencode.command` at the other binary.
 Community build, not affiliated with the OpenCode project.
 
+The newer official extension takes the other route and puts a server in between:
+it starts `opencode serve` on a fixed port 4096 and leaves the process behind on
+every window reload, so the next open can fail with *Is port 4096 in use?*
+([#53020](https://github.com/anomalyco/opencode/issues/53020),
+[#49006](https://github.com/anomalyco/opencode/issues/49006), same class as
+[#50043](https://github.com/anomalyco/opencode/issues/50043)). It also relied on
+CLI v1's `POST /tui/append-prompt` to pre-fill the prompt, and v2 removed all
+`/tui/*` routes without a replacement
+([#54681](https://github.com/anomalyco/opencode/issues/54681)). This extension
+keeps no server and needs no route: it puts text into the terminal itself, which
+is why the same build works on both CLI versions.
+
 ## What you get
 
 - **The agent in its own group, not a tab in the panel.** `Cmd/Ctrl+Esc` opens
@@ -190,12 +202,18 @@ building from source — with the details for each, is in
 **[INSTALLATION.md](INSTALLATION.md)**.
 
 Do not install this alongside the official `sst-dev.opencode` extension: the
-keybindings are intentionally the same and will conflict.
+keybindings are intentionally the same and will conflict. If you do keep both,
+the official one does not bind this extension's own chords — `Cmd+Ctrl+O` to open
+(`Ctrl+Alt+O`), `Cmd+Ctrl+N` for a fresh terminal (`Ctrl+Alt+N`) and
+`Cmd+Ctrl+P` to send a selection (`Ctrl+Alt+P`) — so drive this one from those.
+Disabling one of the two is still the cleanest.
 
 ## Notes
 
 - The keybindings match the official `sst-dev.opencode` extension on purpose, so
-  switching over needs no relearning. Disable one of the two extensions.
+  switching over needs no relearning. This extension's own chords do not exist in
+  the official one, so both can live side by side if you drive this one from
+  those; see *Install* above.
 - The automatic `@file` reference is sent after a short delay
   (`opencode.fileRefDelay`, default 1000 ms) because the VS Code terminal API
   offers no reliable "OpenCode is ready" signal. If your shell starts slowly and
@@ -219,6 +237,11 @@ With `port`, the extension asks the OS for a free port, starts
 waits for `http://127.0.0.1:<n>/app` and then appends the reference with
 `POST /tui/append-prompt`. If the server never answers, it falls back to typing
 the reference, so the setting cannot break the usual workflow.
+
+The route itself is a CLI v1 feature: v2 removed the `/tui/*` endpoints and has
+not replaced them
+([#54681](https://github.com/anomalyco/opencode/issues/54681)), so `port` is for
+v1. The default `typed` mode is what works on both.
 
 ## Development
 

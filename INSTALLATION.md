@@ -126,9 +126,12 @@ code --uninstall-extension r3d3dev.opencode-terminal-cli
 
 ## Notes
 
-- Do **not** install this alongside the official `sst-dev.opencode` extension:
-  the keybindings are intentionally identical and would conflict. Disable one of
-  the two.
+- Installing **alongside** the official `sst-dev.opencode` extension: the shared
+  shortcuts (`Cmd/Ctrl+Esc`, `Cmd/Ctrl+Shift+Esc`, `Cmd/Ctrl+Alt+K`) go to
+  whichever extension wins, so disable one of the two — or keep both and drive
+  this one from its own chords, which the official extension does not bind:
+  `Cmd+Ctrl+O` / `Ctrl+Alt+O` (open), `Cmd+Ctrl+N` / `Ctrl+Alt+N` (a fresh
+  terminal), `Cmd+Ctrl+P` / `Ctrl+Alt+P` (send a selection).
 - All the paths above install the same extension id, so they replace each other;
   pick one update channel (Marketplace, Open VSX, or manual `.vsix`) and stick
   to it.
