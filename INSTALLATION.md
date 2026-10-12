@@ -71,7 +71,7 @@ In the VS Code UI: open the Extensions view → the `⋯` menu in its title bar 
 Command line:
 
 ```bash
-code --install-extension opencode-terminal-cli-0.1.4.vsix
+code --install-extension opencode-terminal-cli-<version>.vsix
 ```
 
 If `code` is not on your `PATH`, run **Shell Command: Install 'code' command in
@@ -88,7 +88,7 @@ git clone https://github.com/r3d3dev/opencode-terminal.git
 cd opencode-terminal
 npm install
 npm run build                      # smoke tests, then vsce package
-code --install-extension opencode-terminal-cli-0.1.4.vsix
+code --install-extension opencode-terminal-cli-<version>.vsix
 ```
 
 `npm run build` runs the smoke tests (`npm test`) and then packages the

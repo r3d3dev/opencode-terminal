@@ -1,15 +1,13 @@
 # OpenCode v2 Terminal
 
-VS Code extension that opens the [OpenCode](https://opencode.ai) CLI agent in the
-integrated terminal with one shortcut and inserts `@file` references from the
-editor.
+VS Code extension that puts the [OpenCode](https://opencode.ai) CLI agent in a
+group of its own beside your code, opens it with one shortcut, and hands it what
+you have selected — the selected text itself, or an `@file` reference.
 
-You do not need an extension to use OpenCode in the IDE: just open any terminal
-in VS Code (`Ctrl`/`Cmd` + `` ` ``) and type `opencode`.
-
-If you prefer keeping it as an extension — a dedicated button, a keyboard
-shortcut, and `@file` references from the active editor — that is exactly what
-this one is.
+You do not need an extension to use OpenCode in the IDE: open any terminal
+(`Ctrl`/`Cmd` + `` ` ``) and type `opencode`. This one is for when you want the
+shortcut, a dedicated group for the agent, and the selection wired straight into
+the prompt.
 
 A small, dependency-free **alternative to the official `sst-dev.opencode`
 extension**, which stopped working with OpenCode CLI v2 (it still invokes the
@@ -26,11 +24,32 @@ never passes version-specific flags, it behaves the same with CLI v1 and v2; if
 you keep two installs side by side, point `opencode.command` at the other binary.
 Community build, not affiliated with the OpenCode project.
 
-## Requirements
+## What you get
 
-- [OpenCode CLI](https://opencode.ai) (`opencode`) available on `PATH` — v1 or v2;
-  the extension uses no version-specific flags or HTTP API.
-- VS Code 1.94.0 or newer.
+- **The agent in its own group, not a tab in the panel.** `Cmd/Ctrl+Esc` opens
+  OpenCode in a dedicated editor group beside the editor, so the code stays
+  visible while you talk to the agent. `Cmd/Ctrl+Shift+Esc` always starts a fresh
+  terminal. The second call focuses the terminal you already have instead of
+  spawning another one.
+- **Send what you have selected.** `Cmd+Ctrl+P` (Windows and Linux
+  `Ctrl+Alt+P`) takes the focus as the answer: the selected text in the editor, or
+  an `@file` reference. Several files from the Explorer arrive as one line; the
+  same command sits in both right-click menus.
+- **Nothing is submitted behind your back.** A multi-line snippet lands in the
+  prompt as one block, line breaks intact, and waits for your Enter.
+- **Reopening the window brings OpenCode back running.** VS Code restores a
+  terminal as an idle shell, not the process that was inside it — the extension
+  takes that tab over and runs `opencode --continue` in it, resuming the last
+  session of *this* project. A workspace where OpenCode was not running is left
+  clean.
+- **No jumps on startup.** The terminal gets a group of its own; when VS Code
+  hands that group back, the extension fills it instead of opening a second tab
+  and closing the first — so you never watch an empty group appear and vanish.
+- **Works with CLI v1 and v2.** No version-specific flags and no HTTP API in the
+  default path, so a CLI upgrade cannot break it. CLI v1's `--port` mode is there
+  as an opt-in.
+- **Nothing behind the scenes.** One `extension.js`, no runtime dependencies, no
+  bundled CLI, no telemetry, MIT.
 
 ## Commands & keybindings
 
@@ -49,15 +68,9 @@ workspace, its `@file` reference is appended automatically.
 sends what is selected there. The same entry sits in both right-click menus — the
 editor's and the Explorer's — so it can be reached with the mouse too.
 
-The selected text is sent as one paste and trimmed. Line breaks cannot go through
-the terminal's text API — VS Code turns each one into an Enter, and OpenCode submits
-the prompt on that — so the text is pasted with the terminal's own paste action,
-which OpenCode receives as a single bracketed paste. Nothing reaches the agent until
-you press Enter yourself.
-
 | Focus | What is sent |
 | --- | --- |
-| Editor, text selected | The **selected text itself**. A multi-line snippet arrives as one block. |
+| Editor, text selected | The **selected text itself**, trimmed. A multi-line snippet arrives as one block. |
 | Editor, nothing selected | `@relative/path` for that file. |
 | Explorer, one or more files | `@relative/path` for every selected file. |
 | Explorer right-click | The same, from the context menu — no keyboard needed. |
@@ -67,12 +80,15 @@ empty selection still tells the agent where you are. Several files arrive as one
 line: `@src/a.ts @src/b.ts`. Duplicates are dropped, so the clicked file is not
 repeated when it is also part of the selection.
 
-Multi-line text is safe because VS Code wraps a non-executing `sendText` in
-bracketed paste markers — the CLI receives a paste, not a series of Enter presses.
+Nothing is submitted until you press Enter. Line breaks cannot go through the
+terminal's text API — VS Code turns each one into an Enter, and OpenCode submits
+the prompt on that — so the selected text is handed over with the terminal's own
+paste action, which OpenCode receives as a single bracketed paste. The clipboard
+is borrowed for that moment and put back as it was.
 
-VS Code does not expose the Explorer selection to extensions, so the keyboard
-path reads the paths back from the clipboard after asking VS Code to copy them,
-and puts the clipboard back as it was.
+VS Code does not expose the Explorer selection to extensions, so that path reads
+the paths back from the clipboard after asking VS Code to copy them, and restores
+the clipboard afterwards.
 
 ## Switching agents (build / plan)
 
@@ -126,16 +142,6 @@ so nothing has to appear and disappear again.
 Sessions are per project: `--continue` picks the most recent session of the
 folder that is open, so switching projects resumes the right conversation.
 
-## Notes
-
-- The keybindings intentionally match the official `sst-dev.opencode` extension
-  (`Cmd/Ctrl+Esc`, `Cmd/Ctrl+Shift+Esc`, `Cmd/Ctrl+Alt+K`). Do not install both
-  at once: the shortcuts would conflict.
-- The automatic `@file` reference is sent after a short delay
-  (`opencode.fileRefDelay`, default 1000 ms) because the VS Code terminal API
-  offers no reliable "OpenCode is ready" signal. If your shell starts slowly and
-  the reference lands in the shell instead of OpenCode, raise the delay.
-
 ## UI buttons
 
 | Where | Command | Action |
@@ -164,6 +170,12 @@ terminal title actions (`+`, split, kill).
 | `opencode.autoIncludeFile` | `true` | Automatically append the active `@file` reference when opening a **new** terminal. |
 | `opencode.fileRefDelay` | `1000` | Delay (ms) before the automatic reference is sent to a fresh terminal. Increase it if your shell startup is slow. |
 
+## Requirements
+
+- [OpenCode CLI](https://opencode.ai) (`opencode`) available on `PATH` — v1 or v2;
+  the extension uses no version-specific flags or HTTP API.
+- VS Code 1.94.0 or newer.
+
 ## Install
 
 ```bash
@@ -177,8 +189,17 @@ Install from the **VS Code Marketplace** (search *OpenCode v2 Terminal*) or from
 building from source — with the details for each, is in
 **[INSTALLATION.md](INSTALLATION.md)**.
 
-Do not install this alongside the official `sst-dev.opencode` extension — the
+Do not install this alongside the official `sst-dev.opencode` extension: the
 keybindings are intentionally the same and will conflict.
+
+## Notes
+
+- The keybindings match the official `sst-dev.opencode` extension on purpose, so
+  switching over needs no relearning. Disable one of the two extensions.
+- The automatic `@file` reference is sent after a short delay
+  (`opencode.fileRefDelay`, default 1000 ms) because the VS Code terminal API
+  offers no reliable "OpenCode is ready" signal. If your shell starts slowly and
+  the reference lands in the shell instead of OpenCode, raise the delay.
 
 ## OpenCode CLI v1 (`--port`)
 
