@@ -49,9 +49,6 @@ is why the same build works on both CLI versions.
   same command sits in both right-click menus.
 - **Nothing is submitted behind your back.** A multi-line snippet lands in the
   prompt as one block, line breaks intact, and waits for your Enter.
-- **Told when the agent needs you.** A finished turn, a permission request, a
-  session that died with an error — each raises a VS Code notification with a
-  *Show terminal* button, and stays quiet while you are watching the terminal.
 - **Reopening the window brings OpenCode back running.** VS Code restores a
   terminal as an idle shell, not the process that was inside it — the extension
   takes that tab over and runs `opencode --continue` in it, resuming the last
@@ -104,40 +101,6 @@ is borrowed for that moment and put back as it was.
 VS Code does not expose the Explorer selection to extensions, so that path reads
 the paths back from the clipboard after asking VS Code to copy them, and restores
 the clipboard afterwards.
-
-## Notifications
-
-The extension can tell you when OpenCode needs you: a finished turn, a permission
-request, a session that stopped with an error. Each one arrives as a VS Code
-notification with a **Show terminal** button.
-
-The integrated terminal cannot pass the CLI's own desktop notifications through —
-OpenCode asks for attention with OSC 99 escapes, which the terminal never shows
-(this is what the open request
-[#39936](https://github.com/anomalyco/opencode/issues/39936) is about) — so the
-extension carries the events across itself:
-
-- it starts OpenCode with a config directory of its own (`OPENCODE_CONFIG_DIR`,
-  created under the extension's storage) that holds a small plugin,
-  [`plugins/opencode-attention.js`](plugins/opencode-attention.js);
-- the plugin writes `session.idle`, `permission.asked` and `session.error` into a
-  log file;
-- the extension watches that log and turns each event into a notification.
-
-Your own OpenCode configuration is not touched — that directory lives in the
-extension's global storage and is only passed to the terminals it opens. If you
-set `OPENCODE_CONFIG_DIR` yourself, the extension leaves it alone and notifications
-stay off.
-
-The default, `opencode.notifications: unfocused`, stays quiet while the OpenCode
-terminal is in front and speaks up when you are elsewhere; `always` notifies
-regardless, `never` switches it off entirely. `opencode.notifyOnTurnEnd: false`
-drops the finished-turn notices and keeps the permission requests and errors. Both
-settings decide how the terminal is started, so changing them takes a window
-reload.
-
-This is separate from OpenCode's own `attention` setting in `tui.json` (sounds and
-terminal-mediated notifications), which the extension neither reads nor changes.
 
 ## Switching agents (build / plan)
 
@@ -218,8 +181,6 @@ terminal title actions (`+`, split, kill).
 | `opencode.integration` | `typed` | `typed` types the `@file` reference into the terminal (any CLI version). `port` starts OpenCode with `--port <free port>` and appends the reference over HTTP — the OpenCode CLI v1 style. |
 | `opencode.autoIncludeFile` | `true` | Automatically append the active `@file` reference when opening a **new** terminal. |
 | `opencode.fileRefDelay` | `1000` | Delay (ms) before the automatic reference is sent to a fresh terminal. Increase it if your shell startup is slow. |
-| `opencode.notifications` | `unfocused` | Notify when OpenCode finishes a turn, asks for a permission, or fails: `unfocused` (only while the OpenCode terminal is not in front), `always`, or `never`. |
-| `opencode.notifyOnTurnEnd` | `true` | Also notify when a turn finishes. Turn off to be told only about permission requests and errors. |
 
 ## Requirements
 
