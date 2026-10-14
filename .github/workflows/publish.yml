@@ -6,9 +6,11 @@ name: Publish the extension
 # publisher is registered against this repository and this file name, so the
 # registration has to be recreated if the file is renamed.
 #
-# Runs on a release tag (v0.1.8, ...) or by hand. A by-hand run publishes
-# whatever version the manifest carries; --skip-duplicate keeps that a no-op when
-# the version is already on the registry.
+# Runs on a release tag (v0.1.8, ...) or by hand. A tag run also publishes the
+# GitHub release with the package attached — the path the README offers for
+# installing without a Marketplace account. A by-hand run publishes whatever
+# version the manifest carries; --skip-duplicate keeps that a no-op when the
+# version is already on the registry.
 #
 # The VS Marketplace has no trusted publishing, so its upload stays manual: the
 # package this job builds is attached to the run for that.
@@ -19,11 +21,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
-  open-vsx:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -47,6 +49,41 @@ jobs:
         with:
           name: vsix
           path: "*.vsix"
+
+      - name: Take the release notes from the changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY' > /tmp/notes.md
+          import os
+          import pathlib
+          import re
+
+          version = os.environ["TAG"].lstrip("v")
+          text = pathlib.Path("CHANGELOG.md").read_text()
+          match = re.search(rf"^## {re.escape(version)}\b.*?(?=^## |\Z)", text, re.M | re.S)
+          if not match:
+              raise SystemExit(f"no changelog entry for {version}")
+          # Drop the "## <version> — <date>" heading, keep the bullets.
+          print(match.group(0).strip().split("\n", 1)[1].strip())
+          PY
+          cat /tmp/notes.md
+
+      # Before the registry publish, so a failed publish still leaves a package
+      # a user can install by hand.
+      - name: Publish the GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "the release exists, replacing its package"
+            gh release upload "$GITHUB_REF_NAME" *.vsix --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file /tmp/notes.md *.vsix
+          fi
 
       - name: Publish to Open VSX
         run: npx --yes ovsx@1 publish --trusted-publishing --skip-duplicate --packagePath *.vsix
