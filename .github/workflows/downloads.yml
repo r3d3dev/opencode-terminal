@@ -32,6 +32,7 @@ jobs:
         run: |
           python3 - <<'PY' > /tmp/downloads.json
           import json
+          import sys
           import urllib.request
 
           UA = {"User-Agent": "opencode-terminal-badge"}
@@ -62,7 +63,8 @@ jobs:
           marketplace_downloads = int(next(s["value"] for s in stats if s["statisticName"] == "downloadCount"))
 
           total = open_vsx_downloads + marketplace_downloads
-          print(f"open-vsx {open_vsx_downloads} + marketplace {marketplace_downloads} = {total}", flush=True)
+          # Readable in the log, never in the file the badge is built from.
+          print(f"open-vsx {open_vsx_downloads} + marketplace {marketplace_downloads} = {total}", file=sys.stderr)
           json.dump(
               {
                   "schemaVersion": 1,
@@ -71,28 +73,35 @@ jobs:
                   "color": "blue",
                   "cacheSeconds": 3600,
               },
-              __import__("sys").stdout,
+              sys.stdout,
           )
           PY
 
       - name: Publish on the badges branch
         run: |
           set -euo pipefail
+          # Annotations are the only channel that reaches outside the run log
+          # when the log itself cannot be downloaded, so a failure says why here.
+          trap 'code=$?; echo "::error::publish failed with exit $code at line $LINENO"' ERR
           cat /tmp/downloads.json; echo
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
-            git fetch --depth=1 origin badges
-            git checkout --detach FETCH_HEAD
+            git fetch --depth=1 origin badges || { echo "::error::fetch of the badges branch failed"; exit 1; }
+            git checkout --detach FETCH_HEAD || { echo "::error::checkout of the badges branch failed"; exit 1; }
           else
-            git checkout --orphan badges
+            git checkout --orphan badges || { echo "::error::creating the orphan branch failed"; exit 1; }
           fi
-          git rm -r --quiet --ignore-unmatch .
+          git rm -r --quiet --ignore-unmatch . || { echo "::error::clearing the worktree failed"; exit 1; }
           cp /tmp/downloads.json downloads.json
           git add downloads.json
           if git diff --cached --quiet; then
             echo "the count has not changed, nothing to publish"
             exit 0
           fi
-          git commit --quiet -m "badge: downloads $(date -u +%Y-%m-%d)"
-          git push origin HEAD:badges
+          git commit --quiet -m "badge: downloads $(date -u +%Y-%m-%d)" || { echo "::error::commit failed"; exit 1; }
+          if ! git push origin HEAD:badges 2>/tmp/pusherr; then
+            echo "::error::push to the badges branch failed: $(tr '\n' ' ' </tmp/pusherr | tail -c 400)"
+            exit 1
+          fi
+          echo "published: $(cat downloads.json)"
