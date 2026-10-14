@@ -1,0 +1,98 @@
+name: Downloads badge
+
+# One number in front of the reader: the downloads on the two registries this
+# extension is published to, added up. shields.io can read a single source but
+# cannot add two, so the sum is computed here once a day and published as JSON
+# on a branch of its own — a badge commit then never lands on main.
+#
+# The number only moves when the registries report a different count, so an
+# unchanged day produces no commit. If either registry cannot be read, the step
+# fails instead of publishing a half-sum (a missing registry read as 0 would
+# quietly shrink the total).
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: downloads-badge
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sum the two download counts
+        run: |
+          python3 - <<'PY' > /tmp/downloads.json
+          import json
+          import urllib.request
+
+          UA = {"User-Agent": "opencode-terminal-badge"}
+
+
+          def fetch(url, data=None, accept="application/json"):
+              headers = dict(UA, Accept=accept)
+              if data is not None:
+                  headers["Content-Type"] = "application/json"
+              request = urllib.request.Request(url, data=data, headers=headers)
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  return json.load(response)
+
+
+          open_vsx = fetch("https://open-vsx.org/api/r3d3dev/opencode-terminal-cli")
+          open_vsx_downloads = int(open_vsx["downloadCount"])
+
+          query = json.dumps({
+              "filters": [{"criteria": [{"filterType": 7, "value": "r3d3dev.opencode-terminal-cli"}]}],
+              "flags": 914,
+          }).encode()
+          gallery = fetch(
+              "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery",
+              data=query,
+              accept="application/json;api-version=7.2-preview.1",
+          )
+          stats = gallery["results"][0]["extensions"][0]["statistics"]
+          marketplace_downloads = int(next(s["value"] for s in stats if s["statisticName"] == "downloadCount"))
+
+          total = open_vsx_downloads + marketplace_downloads
+          print(f"open-vsx {open_vsx_downloads} + marketplace {marketplace_downloads} = {total}", flush=True)
+          json.dump(
+              {
+                  "schemaVersion": 1,
+                  "label": "downloads",
+                  "message": str(total),
+                  "color": "blue",
+                  "cacheSeconds": 3600,
+              },
+              __import__("sys").stdout,
+          )
+          PY
+
+      - name: Publish on the badges branch
+        run: |
+          set -euo pipefail
+          cat /tmp/downloads.json; echo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
+            git fetch --depth=1 origin badges
+            git checkout --detach FETCH_HEAD
+          else
+            git checkout --orphan badges
+          fi
+          git rm -r --quiet --ignore-unmatch .
+          cp /tmp/downloads.json downloads.json
+          git add downloads.json
+          if git diff --cached --quiet; then
+            echo "the count has not changed, nothing to publish"
+            exit 0
+          fi
+          git commit --quiet -m "badge: downloads $(date -u +%Y-%m-%d)"
+          git push origin HEAD:badges
