@@ -1,0 +1,52 @@
+name: Publish the extension
+
+# Releases go out from here so that no Open VSX access token has to be stored:
+# the job asks GitHub for an OIDC ID token and Open VSX exchanges it for a token
+# that lives for minutes and may publish this extension only. The trusted
+# publisher is registered against this repository and this file name, so the
+# registration has to be recreated if the file is renamed.
+#
+# Runs on a release tag (v0.1.8, ...) or by hand. A by-hand run publishes
+# whatever version the manifest carries; --skip-duplicate keeps that a no-op when
+# the version is already on the registry.
+#
+# The VS Marketplace has no trusted publishing, so its upload stays manual: the
+# package this job builds is attached to the run for that.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  open-vsx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # No runtime dependencies, so the smoke test runs before any install.
+      - name: Smoke test
+        run: node test/smoke.js
+
+      - name: Install dev dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Package the extension
+        run: npm run package
+
+      - name: Keep the package for the manual Marketplace upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: "*.vsix"
+
+      - name: Publish to Open VSX
+        run: npx --yes ovsx@1 publish --trusted-publishing --skip-duplicate --packagePath *.vsix
