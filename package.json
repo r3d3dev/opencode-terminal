@@ -1,8 +1,8 @@
 {
   "name": "opencode-terminal-cli",
   "displayName": "OpenCode v2 Terminal",
-  "description": "OpenCode terminal launcher for VS Code: open the OpenCode CLI agent in the integrated terminal with one shortcut and insert @file references from the editor. A dependency-free alternative to the official sst-dev.opencode extension, which stopped working with OpenCode CLI v2. Works with CLI v1 and v2.",
-  "version": "0.1.7",
+  "description": "OpenCode v2 compatible terminal launcher for VS Code: open the OpenCode CLI agent in the integrated terminal with one shortcut and insert @file references from the editor. A dependency-free alternative to the official sst-dev.opencode extension, which stopped working with OpenCode CLI v2. Works with CLI v1 and v2.",
+  "version": "0.1.8",
   "publisher": "r3d3dev",
   "license": "MIT",
   "author": {
@@ -241,7 +241,7 @@
         "opencode.continueLastSession": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Start OpenCode with `--continue`, resuming the most recent session of the current project. When the project has no session yet, the CLI simply starts a new one, so the flag is safe to leave on."
+          "markdownDescription": "Start OpenCode with `--continue`, resuming the most recent session of the current project. `--continue` is added only when the project already has a session: continuing a project with none would just start a fresh session, and OpenCode's TUI reports an error when asked to continue nothing. A project left without one is started plainly."
         },
         "opencode.fileRefDelay": {
           "type": "number",

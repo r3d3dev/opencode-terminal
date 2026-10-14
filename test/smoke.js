@@ -141,7 +141,22 @@ const fakeVscode = {
 
 fakeVscode.workspace._folder = { uri: "file:///proj" };
 fakeVscode.workspace._relPath = "src/app.ts";
-fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+// A workspace folder the way the real API hands it over: the Uri carries the
+// path the extension shells out in (`folder.uri.fsPath`).
+const folder = (fsPath) => ({ uri: { fsPath, toString: () => `file://${fsPath}` } });
+fakeVscode.workspace.workspaceFolders = [folder("/proj")];
+
+// --- fake `opencode session list` probe ------------------------------------
+// The extension shells out once per launch to learn whether the project already
+// has a session to continue. Tests drive the answer through `probe.stdout`;
+// `probe.error` stands in for a CLI that is missing or too slow.
+const probe = { calls: [], stdout: '[{"id":"ses_0000000000000000000000000"}]', error: null };
+const childProcess = require("child_process");
+childProcess.exec = (command, options, callback) => {
+  probe.calls.push({ command, options });
+  process.nextTick(() => callback(probe.error, probe.stdout, ""));
+  return {};
+};
 
 // redirect require("vscode") to our fake
 const originalResolve = Module._resolveFilename;
@@ -387,7 +402,7 @@ const editor = (relPath, selection) => {
   assert.deepStrictEqual(integration.enum, ["typed", "port"], "both modes documented");
 
   // 15. single-root workspace: path is not prefixed with the folder name
-  fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+  fakeVscode.workspace.workspaceFolders = [folder("/proj")];
   fakeVscode.workspace.settings.autoIncludeFile = true;
   fakeVscode.window.activeTextEditor = editor("src/app.ts");
   fakeVscode.window.terminals.length = 0;
@@ -401,8 +416,8 @@ const editor = (relPath, selection) => {
 
   // 16. multi-root workspace: prefix the folder name
   fakeVscode.workspace.workspaceFolders = [
-    { uri: "file:///proj" },
-    { uri: "file:///other" },
+    folder("/proj"),
+    folder("/other"),
   ];
   fakeVscode.window.terminals.length = 0;
   fakeVscode.window.activeTerminal = undefined;
@@ -436,7 +451,7 @@ const editor = (relPath, selection) => {
   fakeVscode.workspace.settings.autoIncludeFile = true;
   fakeVscode.workspace.settings.fileRefDelay = 0;
   fakeVscode.workspace.settings.command = "opencode";
-  fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+  fakeVscode.workspace.workspaceFolders = [folder("/proj")];
   fakeVscode.window.activeTextEditor = editor("src/port.ts");
   fakeVscode.window.terminals.length = 0;
   fakeVscode.window.activeTerminal = undefined;
@@ -496,6 +511,7 @@ const editor = (relPath, selection) => {
   fakeVscode.workspace.settings.command = "opencode";
   fakeVscode.window.terminals.length = 0;
   fakeVscode.window.activeTerminal = undefined;
+  probe.calls.length = 0;
   await calls.registered["opencodeTerminal.openNew"]();
   const t6 = calls.createdTerminals[calls.createdTerminals.length - 1];
   assert.strictEqual(
@@ -503,16 +519,69 @@ const editor = (relPath, selection) => {
     "opencode --continue",
     "resumes the last session with --continue",
   );
+  assert.deepStrictEqual(
+    probe.calls.map((c) => [c.command, c.options.cwd]),
+    [["opencode session list --format json --max-count 1", "/proj"]],
+    "the project's sessions are probed in the workspace folder",
+  );
 
-  // 22. continueLastSession=false -> a plain launch
+  // 22. continueLastSession=false -> a plain launch, and no probe at all
   fakeVscode.workspace.settings.continueLastSession = false;
   fakeVscode.window.terminals.length = 0;
+  probe.calls.length = 0;
   await calls.registered["opencodeTerminal.openNew"]();
   assert.strictEqual(
     calls.createdTerminals[calls.createdTerminals.length - 1].sent[0].text,
     "opencode",
     "no --continue when disabled",
   );
+  assert.deepStrictEqual(probe.calls, [], "the probe is skipped when --continue is off");
+
+  // 22b. no session in the project -> no --continue: the CLI would start a new
+  //      session anyway, and asking it to continue nothing makes the TUI error
+  fakeVscode.workspace.settings.continueLastSession = true;
+  fakeVscode.window.terminals.length = 0;
+  probe.stdout = "[]";
+  await calls.registered["opencodeTerminal.openNew"]();
+  assert.strictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].sent[0].text,
+    "opencode",
+    "a fresh project is started without --continue",
+  );
+
+  // 22c. the probe is best effort: a failure or junk output keeps --continue
+  probe.error = new Error("spawn opencode ENOENT");
+  fakeVscode.window.terminals.length = 0;
+  await calls.registered["opencodeTerminal.openNew"]();
+  assert.strictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].sent[0].text,
+    "opencode --continue",
+    "an unusable probe keeps the configured behaviour",
+  );
+  probe.error = null;
+  probe.stdout = "not json";
+  fakeVscode.window.terminals.length = 0;
+  await calls.registered["opencodeTerminal.openNew"]();
+  assert.strictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].sent[0].text,
+    "opencode --continue",
+    "unparsable output keeps the configured behaviour",
+  );
+  probe.stdout = '[{"id":"ses_0000000000000000000000000"}]';
+
+  // 22d. no workspace folder: there is nothing to probe, so the configured
+  //      behaviour is kept untouched
+  fakeVscode.workspace.workspaceFolders = [];
+  fakeVscode.window.terminals.length = 0;
+  probe.calls.length = 0;
+  await calls.registered["opencodeTerminal.openNew"]();
+  assert.strictEqual(
+    calls.createdTerminals[calls.createdTerminals.length - 1].sent[0].text,
+    "opencode --continue",
+    "without a folder the flag is left alone",
+  );
+  assert.deepStrictEqual(probe.calls, [], "and the probe is not run");
+  fakeVscode.workspace.workspaceFolders = [folder("/proj")];
 
   // 23. the terminal is transient, so VS Code never restores a bare shell
   assert.strictEqual(t6.options.isTransient, true, "terminal is transient");
@@ -605,7 +674,7 @@ const editor = (relPath, selection) => {
     baseline,
     "no terminal without a workspace folder",
   );
-  fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+  fakeVscode.workspace.workspaceFolders = [folder("/proj")];
 
   // 25. a terminal handed back by the previous window is taken over instead of
   //     being duplicated: its tab keeps its group and runs the command
@@ -753,7 +822,7 @@ const editor = (relPath, selection) => {
   fakeVscode.workspace.settings.autoIncludeFile = true;
   fakeVscode.workspace.settings.fileRefDelay = 0;
   fakeVscode.workspace._folder = { uri: "file:///proj" };
-  fakeVscode.workspace.workspaceFolders = [{ uri: "file:///proj" }];
+  fakeVscode.workspace.workspaceFolders = [folder("/proj")];
   fakeVscode.window.activeTextEditor = undefined;
   fakeVscode.window.activeTerminal = undefined;
   fakeVscode.window.terminals.length = 0;

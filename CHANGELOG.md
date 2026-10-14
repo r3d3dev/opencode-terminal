@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.8 — 2026-10-14
+
+- `--continue` is only added to the launch line when the project already has a
+  session. Started with `--continue`, OpenCode's TUI opens the session route with
+  a placeholder id while it resolves the project's last session; in a project
+  without one the placeholder is never replaced, the server rejects every request
+  for it and the TUI shows `Expected a string starting with "ses"`. Continuing a
+  session that does not exist starts a fresh one anyway, so a project with
+  nothing to resume is started plainly. The check runs `opencode session list` in
+  the workspace folder before the terminal command is sent, and is best effort:
+  any doubt — no folder, a failure, a timeout — keeps the previous behaviour.
+
 ## 0.1.7 — 2026-10-12
 
 - `Cmd+Ctrl+O` (`Ctrl+Alt+O`) also opens the OpenCode terminal, and `Cmd+Ctrl+N`

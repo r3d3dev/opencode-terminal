@@ -2,6 +2,7 @@
 
 const vscode = require("vscode");
 const net = require("net");
+const { exec } = require("child_process");
 
 const TERMINAL_NAME = "opencode";
 
@@ -14,6 +15,9 @@ const PORT_ENV = "_EXTENSION_OPENCODE_PORT";
 /** How long to wait for the CLI HTTP server (v1 `--port` mode only). */
 const SERVER_WAIT_MS = 2000;
 const POLL_INTERVAL_MS = 200;
+
+/** How long the "is there a session to continue" probe may take. */
+const SESSION_PROBE_MS = 3000;
 
 /**
  * Focus commands by editor column, for the fallback that closes a group VS Code
@@ -148,13 +152,48 @@ function activate(context) {
   };
 
   /**
-   * Command line to start OpenCode. `--continue` resumes the most recent
-   * session of the current project; when the project has no session yet the
-   * CLI just starts a new one, so the flag is safe to keep on.
+   * Whether the project already has a session to continue. Started with
+   * `--continue`, the TUI opens the session route with a placeholder id while
+   * it resolves the project's last session; in a project without one the
+   * placeholder is never replaced, the server rejects every request for it
+   * (`Expected a string starting with "ses"`) and the TUI shows the error.
+   * Continuing a session that does not exist starts a fresh one anyway, so the
+   * flag is simply left out when there is nothing to continue. The probe is
+   * best effort: any doubt — no folder, a failure, a timeout — keeps the
+   * configured behaviour.
    */
-  const startCommand = (port) => {
+  const hasSession = () => {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) {
+      return Promise.resolve(true);
+    }
+
+    const line = `${config().get("command", "opencode")} session list --format json --max-count 1`;
+    return new Promise((resolve) => {
+      exec(line, { cwd: folder.uri.fsPath, timeout: SESSION_PROBE_MS }, (error, stdout) => {
+        if (error) {
+          resolve(true);
+          return;
+        }
+        try {
+          const sessions = JSON.parse(stdout);
+          resolve(Array.isArray(sessions) && sessions.length > 0);
+        } catch {
+          resolve(true);
+        }
+      });
+    });
+  };
+
+  /**
+   * Command line to start OpenCode. `--continue` resumes the most recent
+   * session of the current project; it is only added when the project has one,
+   * so a fresh workspace does not ask the CLI to continue nothing (see
+   * hasSession).
+   */
+  const startCommand = async (port) => {
     const parts = [config().get("command", "opencode")];
-    if (config().get("continueLastSession", true)) {
+    if (config().get("continueLastSession", true) && (await hasSession())) {
       parts.push("--continue");
     }
     if (port) {
@@ -163,8 +202,8 @@ function activate(context) {
     return parts.join(" ");
   };
 
-  const startOpenCode = (terminal, port) => {
-    terminal.sendText(startCommand(port));
+  const startOpenCode = async (terminal, port) => {
+    terminal.sendText(await startCommand(port));
   };
 
   /**
@@ -271,7 +310,7 @@ function activate(context) {
     const found = expectRestore ? await waitForWindowRestore() : { group: findEmptyGroup() };
     if (found.terminal) {
       found.terminal.show();
-      startOpenCode(found.terminal, portOf(found.terminal));
+      await startOpenCode(found.terminal, portOf(found.terminal));
       return;
     }
 
@@ -284,7 +323,7 @@ function activate(context) {
         : undefined;
     const { terminal, port } = await createTerminal(location);
     terminal.show();
-    startOpenCode(terminal, port);
+    await startOpenCode(terminal, port);
   };
 
   /** Run `write` once OpenCode had time to boot in a freshly created terminal. */
@@ -398,7 +437,7 @@ function activate(context) {
 
     const { terminal, port } = await createTerminal();
     terminal.show();
-    startOpenCode(terminal, port);
+    await startOpenCode(terminal, port);
 
     if (autoRef && config().get("autoIncludeFile", true)) {
       await deliverRef(terminal, getFileRef(), port, true);
@@ -409,7 +448,7 @@ function activate(context) {
   const openNew = async () => {
     const { terminal, port } = await createTerminal();
     terminal.show();
-    startOpenCode(terminal, port);
+    await startOpenCode(terminal, port);
 
     if (config().get("autoIncludeFile", true)) {
       await deliverRef(terminal, getFileRef(), port, true);
@@ -427,7 +466,7 @@ function activate(context) {
 
     const created = await createTerminal();
     created.terminal.show();
-    startOpenCode(created.terminal, created.port);
+    await startOpenCode(created.terminal, created.port);
     return { terminal: created.terminal, port: created.port, fresh: true };
   };
 

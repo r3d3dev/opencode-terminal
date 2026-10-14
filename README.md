@@ -9,67 +9,50 @@ You do not need an extension to use OpenCode in the IDE: open any terminal
 shortcut, a dedicated group for the agent, and the selection wired straight into
 the prompt.
 
-A small, dependency-free **alternative to the official `sst-dev.opencode`
-extension**, which stopped working with OpenCode CLI v2 (it still invokes the
-removed `opencode --port` flag — see
-[anomalyco/opencode#49085](https://github.com/anomalyco/opencode/issues/49085)
-and the unmerged fix [PR #49084](https://github.com/anomalyco/opencode/pull/49084);
-the same symptom is reported in
-[#50530](https://github.com/anomalyco/opencode/issues/50530) and
-[#49992](https://github.com/anomalyco/opencode/issues/49992)).
+Two sets of chords: the ones the official extension uses, and this extension's
+own `Cmd+Ctrl+…` (`Ctrl+Alt+…` elsewhere) — the full list is under *Commands &
+keybindings* below.
 
-It is the terminal part only: no sidebar, no HTTP API, no bundled CLI — it just
-launches `opencode` in a terminal and wires up `@file` references. Because it
-never passes version-specific flags, it behaves the same with CLI v1 and v2; if
-you keep two installs side by side, point `opencode.command` at the other binary.
-Community build, not affiliated with the OpenCode project.
+- **No server, no port, no leftovers.** Unlike the official v2 extension it never
+  starts `opencode serve` on a fixed port 4096, so there is no *Is port 4096 in
+  use?* and no stray process left behind on reload — it types into a terminal
+  instead. Even the opt-in v1 mode asks the OS for a free port, one per terminal.
+- **Works the same on CLI v1 and v2.** The default path uses no version-specific
+  flags and no HTTP API of its own, so a CLI upgrade cannot break it.
+- **Your selection arrives as text and waits for Enter.** A multi-line snippet
+  lands as one block with its line breaks intact (the terminal's own bracketed
+  paste); nothing is submitted behind your back. The clipboard is borrowed for
+  that moment and put back.
+- **The agent gets its own group, without layout jumps.** It opens beside the
+  editor; on reload the tab VS Code hands back is taken over instead of a second
+  one appearing and vanishing.
+- **Reopening the window brings it back running** — resuming the last session of
+  *this* project, and only when that project has a session to resume. A workspace
+  where OpenCode was not running stays clean.
+- **Editor or Explorer, one line, no duplicates.** `@relative/path`,
+  `@file#L10-20` for a line selection, several files as `@a.ts @b.ts`; both
+  right-click menus carry it.
+- **Nothing behind the scenes, and it is tested.** One `extension.js`, zero
+  runtime dependencies, no bundled CLI, no telemetry, MIT — with 33 smoke
+  scenarios (`npm test`) that run the extension without VS Code.
 
-The newer official extension takes the other route and puts a server in between:
-it starts `opencode serve` on a fixed port 4096 and leaves the process behind on
-every window reload, so the next open can fail with *Is port 4096 in use?*
-([#53020](https://github.com/anomalyco/opencode/issues/53020),
-[#49006](https://github.com/anomalyco/opencode/issues/49006), same class as
-[#50043](https://github.com/anomalyco/opencode/issues/50043)). It also relied on
-CLI v1's `POST /tui/append-prompt` to pre-fill the prompt, and v2 removed all
-`/tui/*` routes without a replacement
-([#54681](https://github.com/anomalyco/opencode/issues/54681)). This extension
-keeps no server and needs no route: it puts text into the terminal itself, which
-is why the same build works on both CLI versions.
-
-## What you get
-
-- **The agent in its own group, not a tab in the panel.** `Cmd/Ctrl+Esc` opens
-  OpenCode in a dedicated editor group beside the editor, so the code stays
-  visible while you talk to the agent. `Cmd/Ctrl+Shift+Esc` always starts a fresh
-  terminal. The second call focuses the terminal you already have instead of
-  spawning another one.
-- **Send what you have selected.** `Cmd+Ctrl+P` (Windows and Linux
-  `Ctrl+Alt+P`) takes the focus as the answer: the selected text in the editor, or
-  an `@file` reference. Several files from the Explorer arrive as one line; the
-  same command sits in both right-click menus.
-- **Nothing is submitted behind your back.** A multi-line snippet lands in the
-  prompt as one block, line breaks intact, and waits for your Enter.
-- **Reopening the window brings OpenCode back running.** VS Code restores a
-  terminal as an idle shell, not the process that was inside it — the extension
-  takes that tab over and runs `opencode --continue` in it, resuming the last
-  session of *this* project. A workspace where OpenCode was not running is left
-  clean.
-- **No jumps on startup.** The terminal gets a group of its own; when VS Code
-  hands that group back, the extension fills it instead of opening a second tab
-  and closing the first — so you never watch an empty group appear and vanish.
-- **Works with CLI v1 and v2.** No version-specific flags and no HTTP API in the
-  default path, so a CLI upgrade cannot break it. CLI v1's `--port` mode is there
-  as an opt-in.
-- **Nothing behind the scenes.** One `extension.js`, no runtime dependencies, no
-  bundled CLI, no telemetry, MIT.
+A small, dependency-free alternative to the official `sst-dev.opencode`
+extension, whose v1-style integration broke with CLI v2 — the whole story, with
+the upstream issues, is in *Background* below. Community build, not affiliated
+with the OpenCode project.
 
 ## Commands & keybindings
 
-| Command | macOS | Windows / Linux | Description |
+This extension's own chords come first — they are the ones to reach for. The
+chords the official extension uses are kept working as well, so switching over
+needs no relearning. In each cell the first line is this extension's chord, the
+second is the official one; a cell reads *macOS / Windows · Linux*.
+
+| Command | macOS | Windows / Linux | What it does |
 | --- | --- | --- | --- |
-| **OpenCode: Open in Terminal** | `Cmd+Esc`, `Cmd+Ctrl+O` | `Ctrl+Esc`, `Ctrl+Alt+O` | Open OpenCode in a group of its own beside the editor; reuses an existing `opencode` terminal. |
-| **OpenCode: Open in New Terminal** | `Cmd+Shift+Esc`, `Cmd+Ctrl+N` | `Ctrl+Shift+Esc`, `Ctrl+Alt+N` | Always start a fresh terminal with OpenCode. |
-| **Send to OpenCode** | `Cmd+Alt+K`, `Cmd+Ctrl+P` | `Ctrl+Alt+K`, `Ctrl+Alt+P` | Send the selected text, or an `@file` reference — see *Sending files or text* below. |
+| **OpenCode: Open in Terminal** | `Cmd+Ctrl+O`<br>`Cmd+Esc` | `Ctrl+Alt+O`<br>`Ctrl+Esc` | Open OpenCode in a group of its own beside the editor; reuses an existing `opencode` terminal. |
+| **OpenCode: Open in New Terminal** | `Cmd+Ctrl+N`<br>`Cmd+Shift+Esc` | `Ctrl+Alt+N`<br>`Ctrl+Shift+Esc` | Always start a fresh terminal with OpenCode. |
+| **Send to OpenCode** | `Cmd+Ctrl+P`<br>`Cmd+Alt+K` | `Ctrl+Alt+P`<br>`Ctrl+Alt+K` | Send the selected text, or an `@file` reference — see *Sending files or text* below. |
 
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
@@ -152,7 +135,11 @@ so nothing has to appear and disappear again.
 - `opencode.continueLastSession: false` — always start a new session.
 
 Sessions are per project: `--continue` picks the most recent session of the
-folder that is open, so switching projects resumes the right conversation.
+folder that is open, so switching projects resumes the right conversation. The
+flag is only added when that project already has a session — in a project
+without one the TUI has nothing to continue and reports an error
+(`Expected a string starting with "ses"`), so a fresh project is started
+plainly instead.
 
 ## UI buttons
 
@@ -177,7 +164,7 @@ terminal title actions (`+`, split, kill).
 | `opencode.command` | `opencode` | Command used to start OpenCode (absolute path or shim if it is not on `PATH`). |
 | `opencode.openOnStartup` | `restore` | When OpenCode starts by itself on window open: `restore` (only where it was left running), `always`, or `never`. |
 | `opencode.terminalLocation` | `editor` | Where the terminal opens: `editor` (a group of its own beside the editor) or `panel` (the integrated terminal panel). |
-| `opencode.continueLastSession` | `true` | Launch with `--continue`, resuming the most recent session of the current project. With no session yet, the CLI just starts a new one. |
+| `opencode.continueLastSession` | `true` | Launch with `--continue`, resuming the most recent session of the current project. Only added when the project already has a session; a project with none is started plainly (continuing nothing makes the TUI error). |
 | `opencode.integration` | `typed` | `typed` types the `@file` reference into the terminal (any CLI version). `port` starts OpenCode with `--port <free port>` and appends the reference over HTTP — the OpenCode CLI v1 style. |
 | `opencode.autoIncludeFile` | `true` | Automatically append the active `@file` reference when opening a **new** terminal. |
 | `opencode.fileRefDelay` | `1000` | Delay (ms) before the automatic reference is sent to a fresh terminal. Increase it if your shell startup is slow. |
@@ -210,14 +197,42 @@ Disabling one of the two is still the cleanest.
 
 ## Notes
 
-- The keybindings match the official `sst-dev.opencode` extension on purpose, so
-  switching over needs no relearning. This extension's own chords do not exist in
-  the official one, so both can live side by side if you drive this one from
+- The chords the official `sst-dev.opencode` extension uses are kept as they are,
+  so switching over needs no relearning. This extension's own chords do not exist
+  in the official one, so both can live side by side if you drive this one from
   those; see *Install* above.
 - The automatic `@file` reference is sent after a short delay
   (`opencode.fileRefDelay`, default 1000 ms) because the VS Code terminal API
   offers no reliable "OpenCode is ready" signal. If your shell starts slowly and
   the reference lands in the shell instead of OpenCode, raise the delay.
+
+## Background
+
+It is the terminal part only: no sidebar, no HTTP API, no bundled CLI — it just
+launches `opencode` in a terminal and wires up `@file` references. Because it
+never passes version-specific flags, it behaves the same with CLI v1 and v2; if
+you keep two installs side by side, point `opencode.command` at the other binary.
+
+A small, dependency-free **alternative to the official `sst-dev.opencode`
+extension**, which stopped working with OpenCode CLI v2 (it still invokes the
+removed `opencode --port` flag — see
+[anomalyco/opencode#49085](https://github.com/anomalyco/opencode/issues/49085)
+and the unmerged fix [PR #49084](https://github.com/anomalyco/opencode/pull/49084);
+the same symptom is reported in
+[#50530](https://github.com/anomalyco/opencode/issues/50530) and
+[#49992](https://github.com/anomalyco/opencode/issues/49992)).
+
+The newer official extension takes the other route and puts a server in between:
+it starts `opencode serve` on a fixed port 4096 and leaves the process behind on
+every window reload, so the next open can fail with *Is port 4096 in use?*
+([#53020](https://github.com/anomalyco/opencode/issues/53020),
+[#49006](https://github.com/anomalyco/opencode/issues/49006), same class as
+[#50043](https://github.com/anomalyco/opencode/issues/50043)). It also relied on
+CLI v1's `POST /tui/append-prompt` to pre-fill the prompt, and v2 removed all
+`/tui/*` routes without a replacement
+([#54681](https://github.com/anomalyco/opencode/issues/54681)). This extension
+keeps no server and needs no route: it puts text into the terminal itself, which
+is why the same build works on both CLI versions.
 
 ## OpenCode CLI v1 (`--port`)
 
