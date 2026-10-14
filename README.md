@@ -1,6 +1,7 @@
 # OpenCode v2 Terminal
 
 [![CI](https://github.com/r3d3dev/opencode-terminal/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/r3d3dev/opencode-terminal/actions/workflows/ci.yml)
+[![version](https://img.shields.io/github/v/tag/r3d3dev/opencode-terminal?sort=semver&label=version)](https://github.com/r3d3dev/opencode-terminal/tags)
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.94.0-blue)](package.json)
 [![OpenCode CLI](https://img.shields.io/npm/v/@opencode/cli?label=OpenCode%20CLI)](https://www.npmjs.com/package/@opencode/cli)
 [![Open VSX downloads](https://img.shields.io/open-vsx/dt/r3d3dev/opencode-terminal-cli)](https://open-vsx.org/extension/r3d3dev/opencode-terminal-cli)
