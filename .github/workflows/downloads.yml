@@ -92,13 +92,15 @@ jobs:
           else
             git checkout --orphan badges || { echo "::error::creating the orphan branch failed"; exit 1; }
           fi
-          git rm -r --quiet --ignore-unmatch . || { echo "::error::clearing the worktree failed"; exit 1; }
-          cp /tmp/downloads.json downloads.json
-          git add downloads.json
-          if git diff --cached --quiet; then
+          if [ -f downloads.json ] && cmp -s downloads.json /tmp/downloads.json; then
             echo "the count has not changed, nothing to publish"
             exit 0
           fi
+          # An orphan branch has no HEAD, and `git rm` insists on comparing with
+          # one; emptying the index does the same job without needing it.
+          git read-tree --empty
+          cp /tmp/downloads.json downloads.json
+          git add -f downloads.json
           git commit --quiet -m "badge: downloads $(date -u +%Y-%m-%d)" || { echo "::error::commit failed"; exit 1; }
           if ! git push origin HEAD:badges 2>/tmp/pusherr; then
             echo "::error::push to the badges branch failed: $(tr '\n' ' ' </tmp/pusherr | tail -c 400)"
