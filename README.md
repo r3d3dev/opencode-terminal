@@ -2,9 +2,7 @@
 
 [![CI](https://github.com/r3d3dev/opencode-terminal/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/r3d3dev/opencode-terminal/actions/workflows/ci.yml)
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.94.0-blue)](package.json)
-[![dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
 [![OpenCode CLI](https://img.shields.io/npm/v/@opencode/cli?label=OpenCode%20CLI)](https://www.npmjs.com/package/@opencode/cli)
-[![Open VSX version](https://img.shields.io/open-vsx/v/r3d3dev/opencode-terminal-cli)](https://open-vsx.org/extension/r3d3dev/opencode-terminal-cli)
 [![Open VSX downloads](https://img.shields.io/open-vsx/dt/r3d3dev/opencode-terminal-cli)](https://open-vsx.org/extension/r3d3dev/opencode-terminal-cli)
 
 VS Code extension that puts the [OpenCode](https://opencode.ai) CLI agent in a
