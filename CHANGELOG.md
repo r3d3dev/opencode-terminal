@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.9 — 2026-10-14
+## 0.1.9 — 2026-10-19
 
 - **The listing is now "OpenCode Terminal"**, without the version marker. A
   search for `opencode` ranks short names far above long ones and install counts
