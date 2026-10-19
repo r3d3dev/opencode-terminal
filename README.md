@@ -122,8 +122,10 @@ them. Binding `Tab` to agent cycling brings the old collision back, though:
 `Cmd+Ctrl+M` (`Ctrl+Alt+M`) opens a model picker for the running session with the
 models grouped by provider. The CLI's own picker in v2 puts every model of every
 provider into one flat list, which stops being usable as soon as a few providers
-are configured; here each provider is a separator and each entry says what it
-costs and how much context it takes.
+are configured; here each provider is a separator, with the number of models it
+contributes, and each entry says what it costs and how much context it takes. The
+first row, *Filter by provider*, narrows the list to one provider; the choice is
+remembered for the next invocation until you pick *Every provider*.
 
 The choice is applied to the **running** session through the CLI's API
 (`opencode api session.switchModel`), so the open terminal takes the new model

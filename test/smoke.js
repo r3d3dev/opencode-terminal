@@ -1002,8 +1002,8 @@ const editor = (relPath, selection) => {
   const seenItems = quickPickSeen.items;
   assert.deepStrictEqual(
     seenItems.filter((i) => i.kind === -1).map((i) => i.label),
-    ["opencode", "orcarouter"],
-    "providers become separators, sorted",
+    ["opencode (1)", "orcarouter (1)"],
+    "providers become separators with counts, sorted",
   );
   assert.ok(!seenItems.some((i) => i.model && i.model.id === "off"), "disabled models are left out");
   assert.ok(seenItems.some((i) => i.model && i.detail.includes("free")), "free models say so");
@@ -1100,6 +1100,55 @@ const editor = (relPath, selection) => {
   assert.ok(complaint.msg.includes("1.19.0"), "the version the CLI reports is in the message");
   assert.ok(complaint.msg.includes("opencode2"), "a v1 CLI is told which binary to point at");
 
+  probe.reply = null;
+  probe.calls.length = 0;
+
+  // 39. the filter row narrows the list to one provider, and the choice is
+  //     remembered for the next invocation
+  probe.reply = (command) => {
+    if (command.includes("api model.list")) return { stdout: JSON.stringify(catalog) };
+    if (command.includes("api session.active")) return { stdout: JSON.stringify({ data: { id: "ses_active" } }) };
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  const seenLists = [];
+  let step = 0;
+  quickPickAnswer = (items) => {
+    seenLists.push(items);
+    step += 1;
+    if (step === 1) return items.find((i) => i.filterRow);
+    if (step === 2) return items.find((i) => i.provider === "orcarouter");
+    return items.find((i) => i.model);
+  };
+  await calls.registered["opencodeTerminal.pickModel"]();
+  assert.strictEqual(seenLists.length, 3, "the filter reopens the model list");
+  assert.strictEqual(seenLists[0][0].filterRow, true, "the filter row leads the list");
+  assert.deepStrictEqual(
+    seenLists[2].filter((i) => i.kind === -1).map((i) => i.label),
+    ["orcarouter (1)"],
+    "only the chosen provider remains",
+  );
+  const filteredSwitch = probe.calls.find((c) => c.command.includes("switchModel"));
+  assert.ok(filteredSwitch && filteredSwitch.command.includes("orcarouter"), "the filtered pick is switched to");
+  assert.ok(fakeVscode.window.messages.some((m) => m.msg.includes("OrcaRouter Auto")), "and confirmed");
+
+  // the remembered filter applies to the next invocation too
+  seenLists.length = 0;
+  step = 0;
+  quickPickAnswer = (items) => {
+    seenLists.push(items);
+    step += 1;
+    if (step === 1) return items.find((i) => i.filterRow);
+    if (step === 2) return null; // cancelled provider picker: keep the filter
+    return undefined;
+  };
+  await calls.registered["opencodeTerminal.pickModel"]();
+  assert.deepStrictEqual(
+    seenLists[0].filter((i) => i.kind === -1).map((i) => i.label),
+    ["orcarouter (1)"],
+    "the filter is remembered until it is cleared",
+  );
   probe.reply = null;
   probe.calls.length = 0;
 

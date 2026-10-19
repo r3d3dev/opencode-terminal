@@ -292,13 +292,29 @@ function activate(context) {
    * what makes it hard to use; a separator per provider is this command's
    * reason to exist, so the grouping is built here and nowhere else.
    */
-  const modelItems = (models) => {
+  const usableModels = (models) =>
+    models.filter(
+      (model) =>
+        model &&
+        model.id &&
+        model.providerID &&
+        model.enabled !== false &&
+        !(model.status && model.status !== "active"),
+    );
+
+  /** Providers present in the catalog, with how many models each has. */
+  const providersOf = (models) => {
+    const counts = new Map();
+    for (const model of usableModels(models)) {
+      counts.set(model.providerID, (counts.get(model.providerID) || 0) + 1);
+    }
+    return [...counts.keys()].sort().map((provider) => ({ provider, count: counts.get(provider) }));
+  };
+
+  const modelItems = (models, filter) => {
     const byProvider = new Map();
-    for (const model of models) {
-      if (!model || !model.id || !model.providerID) {
-        continue;
-      }
-      if (model.enabled === false || (model.status && model.status !== "active")) {
+    for (const model of usableModels(models)) {
+      if (filter && model.providerID !== filter) {
         continue;
       }
       const list = byProvider.get(model.providerID) || [];
@@ -306,9 +322,18 @@ function activate(context) {
       byProvider.set(model.providerID, list);
     }
 
-    const items = [];
+    const items = [
+      {
+        label: "$(filter) Filter by provider",
+        description: filter ? `now: ${filter}` : "all providers",
+        filterRow: true,
+      },
+    ];
     for (const provider of [...byProvider.keys()].sort()) {
-      items.push({ label: provider, kind: vscode.QuickPickItemKind.Separator });
+      items.push({
+        label: `${provider} (${byProvider.get(provider).length})`,
+        kind: vscode.QuickPickItemKind.Separator,
+      });
       const list = byProvider
         .get(provider)
         .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
@@ -335,6 +360,22 @@ function activate(context) {
     return first && typeof first.id === "string" ? first.id : undefined;
   };
 
+  /** Second QuickPick of the filter row: one provider, or every provider. */
+  const pickProvider = async (providers) => {
+    const picked = await vscode.window.showQuickPick(
+      [
+        { label: "$(clear-all) Every provider", provider: undefined },
+        ...providers.map((entry) => ({
+          label: entry.provider,
+          description: `${entry.count} ${entry.count === 1 ? "model" : "models"}`,
+          provider: entry.provider,
+        })),
+      ],
+      { placeHolder: "Show the models of which provider?" },
+    );
+    return picked || null;
+  };
+
   /** Single-quote a shell argument (the API payload is JSON). */
   const shellQuote = (text) => `'${String(text).replace(/'/g, `'\\''`)}'`;
 
@@ -348,6 +389,8 @@ function activate(context) {
    * Any doubt keeps the configured name, so a PATH that does work stays usable.
    */
   let cliPathCache;
+  /** Provider the picker is narrowed to; remembered for the next invocation. */
+  let providerFilter;
   const resolveCli = async (folder) => {
     const configured = config().get("command", "opencode");
     if (configured.includes("/")) {
@@ -411,12 +454,28 @@ function activate(context) {
       return;
     }
 
-    const picked = await vscode.window.showQuickPick(modelItems(models), {
-      placeHolder: "Model for the running OpenCode session",
-      matchOnDescription: true,
-      matchOnDetail: true,
-    });
-    if (!picked || !picked.model) {
+    const providers = providersOf(models);
+    let picked;
+    for (;;) {
+      picked = await vscode.window.showQuickPick(modelItems(models, providerFilter), {
+        placeHolder: providerFilter
+          ? `Model from ${providerFilter}`
+          : "Model for the running OpenCode session",
+        matchOnDescription: true,
+        matchOnDetail: true,
+      });
+      if (!picked) {
+        return;
+      }
+      if (!picked.filterRow) {
+        break;
+      }
+      const choice = await pickProvider(providers);
+      if (choice) {
+        providerFilter = choice.provider;
+      }
+    }
+    if (!picked.model) {
       return;
     }
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.13 — 2026-10-19
+
+- **The model picker filters by provider.** The first row narrows the list to one
+  provider, the choice is remembered for the next invocation until *Every
+  provider* is picked, and each separator carries the number of models under it.
+  A catalog of a couple of hundred models across several providers is unusable as
+  one flat scroll, which is what the picker had become.
+- 39 smoke scenarios, one of them for the filter flow including the remembered
+  choice and a cancelled provider picker.
+
 ## 0.1.12 — 2026-10-19
 
 - **Restarting the extension no longer types the launch line into the running
