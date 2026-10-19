@@ -549,9 +549,15 @@ const editor = (relPath, selection) => {
     "resumes the last session with --continue",
   );
   assert.deepStrictEqual(
-    probe.calls.map((c) => [c.command, c.options.cwd]),
+    probe.calls
+      .filter((c) => !c.command.includes(" -ilc "))
+      .map((c) => [c.command, c.options.cwd]),
     [["opencode session list --format json --max-count 1", "/proj"]],
     "the project's sessions are probed in the workspace folder",
+  );
+  assert.ok(
+    probe.calls.some((c) => c.command.includes(" -ilc ") && c.command.includes("command -v opencode")),
+    "the CLI is looked up the way a terminal would find it",
   );
 
   // 22. continueLastSession=false -> a plain launch, and no probe at all
@@ -1037,6 +1043,32 @@ const editor = (relPath, selection) => {
   quickPickAnswer = null;
   await calls.registered["opencodeTerminal.pickModel"]();
   assert.ok(fakeVscode.window.messages.some((m) => m.level === "error"), "a failed read is reported");
+  probe.reply = null;
+  probe.calls.length = 0;
+
+  // 37. a CLI that only the login shell can find is still used: the editor hands
+  //     its extensions a narrower PATH than the terminal has
+  probe.reply = (command) => {
+    if (command.includes(" -ilc ")) return { stdout: "/opt/homebrew/bin/opencode\n" };
+    if (command.includes("api model.list")) return { stdout: JSON.stringify(catalog) };
+    if (command.includes("api session.active")) return { stdout: JSON.stringify({ data: { id: "ses_active" } }) };
+    return { stdout: "" };
+  };
+  delete require.cache[require.resolve("../extension.js")];
+  const ext2 = require("../extension.js");
+  ext2.activate(context);
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickAnswer = (items) => items.find((i) => i.model);
+  await calls.registered["opencodeTerminal.pickModel"]();
+  assert.ok(
+    probe.calls.some((c) => c.command.startsWith("/opt/homebrew/bin/opencode api model.list")),
+    "the resolved absolute path is used for the API call",
+  );
+  assert.ok(
+    probe.calls.some((c) => c.command.startsWith("/opt/homebrew/bin/opencode api session.switchModel")),
+    "and for the switch too",
+  );
   probe.reply = null;
   probe.calls.length = 0;
 

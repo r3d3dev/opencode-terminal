@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.10 — 2026-10-19
+
+- **The CLI is looked up the way a terminal finds it.** An editor started from
+  the Dock hands its extensions a minimal PATH, so `opencode api …` failed from
+  the extension while the same command worked in the OpenCode terminal, and the
+  model picker answered "Could not read the model list". The executable is now
+  resolved through a login shell once per window (an absolute `opencode.command`
+  is taken as given), and both the picker and the `--continue` probe go through
+  it — that probe had been failing silently on such machines as well.
+- **A failed call now says what it ran and what the CLI answered**, with the
+  exact command line and the last line of stderr, instead of a generic hint.
+- 37 smoke scenarios, one of them for the login-shell lookup.
+
 ## 0.1.9 — 2026-10-19
 
 - **The listing is now "OpenCode Terminal"**, without the version marker. A

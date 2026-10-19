@@ -162,13 +162,17 @@ function activate(context) {
    * best effort: any doubt — no folder, a failure, a timeout — keeps the
    * configured behaviour.
    */
-  const hasSession = () => {
+  const hasSession = async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
     if (!folder) {
-      return Promise.resolve(true);
+      return true;
     }
 
-    const line = `${config().get("command", "opencode")} session list --format json --max-count 1`;
+    // The CLI is resolved like the terminal resolves it: a GUI editor hands its
+    // extensions a minimal PATH, so a bare `opencode` is often not found here
+    // even though the integrated terminal runs it fine.
+    const cli = await resolveCli(folder);
+    const line = `${cli} session list --format json --max-count 1`;
     return new Promise((resolve) => {
       exec(line, { cwd: folder.uri.fsPath, timeout: SESSION_PROBE_MS }, (error, stdout) => {
         if (error) {
@@ -214,9 +218,10 @@ function activate(context) {
    * supported entry point: it talks to its own server, so the extension never
    * needs a port of its own and inherits whatever version the user runs.
    */
-  const cliCall = (call, folder) =>
-    new Promise((resolve) => {
-      const line = `${config().get("command", "opencode")} api ${call}`;
+  const cliCall = async (call, folder) => {
+    const cli = await resolveCli(folder);
+    const line = `${cli} api ${call}`;
+    return new Promise((resolve) => {
       exec(
         line,
         { cwd: folder.uri.fsPath, timeout: API_PROBE_MS, maxBuffer: 8 * 1024 * 1024 },
@@ -225,10 +230,12 @@ function activate(context) {
             ok: !error,
             stdout: stdout || "",
             error: error ? String(stderr || error.message || "").trim() : "",
+            command: line,
           });
         },
       );
     });
+  };
 
   /** Same, parsed. Undefined on failure or when the answer is not JSON. */
   const cliApi = async (call, folder) => {
@@ -308,6 +315,37 @@ function activate(context) {
   /** Single-quote a shell argument (the API payload is JSON). */
   const shellQuote = (text) => `'${String(text).replace(/'/g, `'\\''`)}'`;
 
+  /** The shell a terminal would use; falls back to the login shell. */
+  const userShell = () => (vscode.env && vscode.env.shell) || process.env.SHELL || "/bin/sh";
+
+  /**
+   * Absolute path of the CLI, asked of a login shell. An editor started from the
+   * Dock does not inherit the PATH a terminal has, which is why `opencode api`
+   * can fail from here while the same command works in the OpenCode terminal.
+   * Any doubt keeps the configured name, so a PATH that does work stays usable.
+   */
+  let cliPathCache;
+  const resolveCli = async (folder) => {
+    const configured = config().get("command", "opencode");
+    if (configured.includes("/")) {
+      return configured;
+    }
+    if (cliPathCache !== undefined) {
+      return cliPathCache;
+    }
+    const found = await new Promise((resolve) => {
+      exec(
+        `${userShell()} -ilc ${shellQuote(`command -v ${configured}`)}`,
+        { cwd: folder.uri.fsPath, timeout: API_PROBE_MS },
+        (error, stdout) => resolve(error ? "" : String(stdout || "").trim()),
+      );
+    });
+    // A path is absolute and has no whitespace; anything else is noise from a
+    // shell profile, and then the configured name is the safer bet.
+    cliPathCache = /^\/[^\s]+$/.test(found) ? found : configured;
+    return cliPathCache;
+  };
+
   /**
    * Pick a model with the providers grouped, then switch the running session to
    * it through the CLI's API. Verified on v2: the session takes the new model
@@ -320,11 +358,24 @@ function activate(context) {
       return;
     }
 
-    const catalog = await cliApi("model.list", folder);
-    const models = catalog && Array.isArray(catalog.data) ? catalog.data : [];
+    const catalog = await cliCall("model.list", folder);
+    if (!catalog.ok) {
+      const reason = catalog.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
+      void vscode.window.showErrorMessage(
+        `Could not read the model list from OpenCode. Command tried: ${catalog.command}. It said: ${reason}`,
+      );
+      return;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(catalog.stdout);
+    } catch {
+      parsed = undefined;
+    }
+    const models = parsed && Array.isArray(parsed.data) ? parsed.data : [];
     if (models.length === 0) {
       void vscode.window.showErrorMessage(
-        "Could not read the model list from OpenCode. Is the CLI on PATH and its server running?",
+        `OpenCode answered ${catalog.command} without any models. Check that a provider is configured.`,
       );
       return;
     }
@@ -350,7 +401,9 @@ function activate(context) {
     const result = await cliCall(`session.switchModel --param sessionID=${sessionID} --data ${shellQuote(body)}`, folder);
     if (!result.ok) {
       const reason = result.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
-      void vscode.window.showErrorMessage(`OpenCode rejected the switch to ${picked.label}: ${reason}`);
+      void vscode.window.showErrorMessage(
+        `OpenCode rejected the switch to ${picked.label}. Command tried: ${result.command}. It said: ${reason}`,
+      );
       return;
     }
     void vscode.window.showInformationMessage(`OpenCode model: ${picked.label}`);
