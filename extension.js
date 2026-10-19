@@ -2,6 +2,9 @@
 
 const vscode = require("vscode");
 const net = require("net");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const { exec } = require("child_process");
 
 const TERMINAL_NAME = "opencode";
@@ -218,18 +221,48 @@ function activate(context) {
    * supported entry point: it talks to its own server, so the extension never
    * needs a port of its own and inherits whatever version the user runs.
    */
+  /**
+   * Run one CLI command. The answer is taken from a file rather than the pipe:
+   * on a large catalogue the CLI loses the tail of its own output when Node reads
+   * it straight from a pipe (the size differs run to run, as if the process exits
+   * before the last write lands), while a shell redirect is written whole.
+   */
   const cliRun = async (args, folder) => {
     const cli = await resolveCli(folder);
     const line = `${cli} ${args}`;
+    const stamp = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const outFile = path.join(os.tmpdir(), `opencode-cli-${stamp}.out`);
+    const errFile = path.join(os.tmpdir(), `opencode-cli-${stamp}.err`);
     return new Promise((resolve) => {
       exec(
-        line,
+        `${line} > ${shellQuote(outFile)} 2> ${shellQuote(errFile)}`,
         { cwd: folder.uri.fsPath, timeout: API_PROBE_MS, maxBuffer: 8 * 1024 * 1024 },
         (error, stdout, stderr) => {
+          let body = "";
+          let said = "";
+          try {
+            body = fs.readFileSync(outFile, "utf8");
+          } catch {
+            body = "";
+          }
+          try {
+            said = fs.readFileSync(errFile, "utf8");
+          } catch {
+            said = "";
+          }
+          for (const file of [outFile, errFile]) {
+            try {
+              fs.unlinkSync(file);
+            } catch {
+              // Nothing to clean up.
+            }
+          }
+          // The redirect is the reliable path; the callback buffers are the
+          // fallback for a shell that refused to write the files.
           resolve({
             ok: !error,
-            stdout: stdout || "",
-            error: error ? String(stderr || error.message || "").trim() : "",
+            stdout: body || stdout || "",
+            error: error ? String(said || stderr || error.message || "").trim() : "",
             command: line,
           });
         },

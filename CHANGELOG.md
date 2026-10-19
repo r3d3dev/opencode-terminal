@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.16 — 2026-10-19
+
+- **The catalogue is read from a file, not from the CLI's pipe.** On a large
+  provider list the CLI loses the tail of its own answer when Node reads it
+  straight from a pipe: the received size differed run to run (262 KB, 402 KB,
+  475 KB out of 1.6 MB) and the JSON ended mid-array, which is the
+  `Expected ',' or ']' after array element` a large catalogue produced. With a
+  shell redirect to a temporary file the same request comes back whole, verified
+  locally against CLI 2.0.32 with a 1.6 MB, 3000-model answer. The callback
+  buffers stay as a fallback for a shell that refuses the redirect.
+- 41 smoke scenarios.
+
 ## 0.1.15 — 2026-10-19
 
 - **The model list survives what a terminal adds around it.** The CLI's answer is
