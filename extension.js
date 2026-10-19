@@ -273,6 +273,33 @@ function activate(context) {
     return [];
   };
 
+  /**
+   * JSON out of the CLI's answer, tolerating what a terminal can add around it:
+   * ANSI colour, a byte-order mark, a banner or a prompt. The CLI is a program
+   * writing to a pipe, and one stray line used to cost the whole list.
+   */
+  const parseJsonLoose = (text) => {
+    const clean = String(text || "")
+      .replace(/\u001b\[[0-9;]*m/g, "")
+      .replace(/^\uFEFF/, "")
+      .trim();
+    const attempts = [clean];
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      attempts.push(clean.slice(start, end + 1));
+    }
+    let error = "";
+    for (const attempt of attempts) {
+      try {
+        return { ok: true, value: JSON.parse(attempt) };
+      } catch (thrown) {
+        error = String((thrown && thrown.message) || thrown);
+      }
+    }
+    return { ok: false, error };
+  };
+
   /** Price and context for one model, as the QuickPick detail line. */
   const modelDetails = (model) => {
     const cost = Array.isArray(model.cost) ? model.cost[0] : undefined;
@@ -529,24 +556,23 @@ function activate(context) {
       );
       return;
     }
-    let parsed;
-    try {
-      parsed = JSON.parse(catalog.stdout);
-    } catch {
-      parsed = undefined;
-    }
-    const models = extractModels(parsed);
+    const parsed = parseJsonLoose(catalog.stdout);
+    const models = parsed.ok ? extractModels(parsed.value) : [];
     if (models.length === 0) {
       // The message has to carry enough to tell a v1 CLI from a changed answer:
       // the version it reports and what it actually printed.
       const version = await cliRun("--version", folder);
       const reported = (version.ok ? version.stdout : version.error).trim().split("\n")[0] || "unknown version";
       const raw = String(catalog.stdout || "").trim().replace(/\s+/g, " ").slice(0, 220);
+      const data = parsed.ok ? parsed.value && parsed.value.data : undefined;
+      const shape = parsed.ok
+        ? `the JSON parsed, but its data field is ${Array.isArray(data) ? "an empty array" : typeof data}`
+        : `the answer is not JSON (${String(parsed.error).slice(0, 140)})`;
       const hint = /^v?1\./.test(reported)
         ? " This is OpenCode v1, which has no model API: point `opencode.command` at the v2 binary (often `opencode2`)."
-        : " Check that a provider is configured.";
+        : "";
       void vscode.window.showErrorMessage(
-        `The model picker needs OpenCode v2. ${catalog.command.split(" ")[0]} reports "${reported}". It answered: ${raw || "(nothing)"}.${hint}`,
+        `Could not read the model list. ${catalog.command.split(" ")[0]} reports "${reported}"; ${shape}. Answer: ${raw || "(nothing)"}.${hint}`,
       );
       return;
     }

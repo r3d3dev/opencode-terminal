@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.15 — 2026-10-19
+
+- **The model list survives what a terminal adds around it.** The CLI's answer is
+  passed through a parser that tolerates ANSI colour, a byte-order mark, and a
+  banner or prompt before and after the JSON; one stray line used to cost the
+  whole list, which is what a 2.0.32 install ran into.
+- **A failure names its reason**: whether the answer was not JSON, or the JSON
+  parsed but its `data` field was empty or of another type, together with the
+  version the CLI reports and the first 220 characters of the answer.
+- 41 smoke scenarios, one of them for a wrapped answer.
+
 ## 0.1.14 — 2026-10-19
 
 - **Favourites.** Every model row carries a star: it pins the model to a

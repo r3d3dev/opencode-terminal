@@ -1291,6 +1291,31 @@ const editor = (relPath, selection) => {
   probe.reply = null;
   probe.calls.length = 0;
 
+  // 41. the answer survives what a terminal adds around it: colour codes, a
+  //     banner line before the JSON, a prompt after it
+  probe.reply = (command) => {
+    if (command.includes("api model.list")) {
+      return {
+        stdout: `\u001b[32mOpenCode is updating\u001b[0m\n${JSON.stringify(catalog)}\n$ `,
+      };
+    }
+    if (command.includes("api session.active")) return { stdout: JSON.stringify({ data: { id: "ses_active" } }) };
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickSeen = null;
+  quickPickAnswer = (items) => items.find((i) => i.model && i.model.id === "orcarouter/auto");
+  await calls.registered["opencodeTerminal.pickModel"]();
+  assert.ok(quickPickSeen, "a wrapped answer still opens the picker");
+  assert.ok(
+    quickPickSeen.items.some((i) => i.model && i.model.id === "orcarouter/auto"),
+    "and the models are there",
+  );
+  assert.ok(!fakeVscode.window.messages.some((m) => m.level === "error"), "no error is reported");
+  probe.reply = null;
+  probe.calls.length = 0;
+
   console.log("OK: all smoke tests passed");
 })().catch((err) => {
   console.error("FAIL:", err.message);
