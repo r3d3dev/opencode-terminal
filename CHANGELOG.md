@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.11 — 2026-10-19
+
+- **The model list is read from any envelope the CLI uses**, not only the flat
+  `{data: […]}` one, so a change in the response shape no longer turns into an
+  empty picker.
+- **An empty answer explains itself**: the message now carries the version the
+  CLI reports and the first 220 characters of what it actually printed, and a
+  v1 CLI is named as such with a pointer to the v2 binary. The previous message
+  could only say "no models".
+- 38 smoke scenarios.
+
 ## 0.1.10 — 2026-10-19
 
 - **The CLI is looked up the way a terminal finds it.** An editor started from

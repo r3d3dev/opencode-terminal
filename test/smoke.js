@@ -1072,6 +1072,40 @@ const editor = (relPath, selection) => {
   probe.reply = null;
   probe.calls.length = 0;
 
+  // 38. a nested envelope is still read, and a CLI that reports v1 gets a hint
+  //     naming the v2 binary instead of a generic complaint
+  probe.reply = (command) => {
+    if (command.includes("api model.list")) return { stdout: JSON.stringify({ data: { models: catalog.data } }) };
+    if (command.includes("api session.active")) return { stdout: JSON.stringify({ data: { id: "ses_active" } }) };
+    if (command.includes("--version")) return { stdout: "2.0.32" };
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickSeen = null;
+  quickPickAnswer = (items) => items.find((i) => i.model);
+  await calls.registered["opencodeTerminal.pickModel"]();
+  assert.ok(
+    quickPickSeen && quickPickSeen.items.some((i) => i.model && i.model.id === "orcarouter/auto"),
+    "a nested envelope still yields models",
+  );
+
+  probe.reply = (command) => {
+    if (command.includes("api model.list")) return { stdout: "{}" };
+    if (command.includes("--version")) return { stdout: "1.19.0" };
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  quickPickAnswer = null;
+  await calls.registered["opencodeTerminal.pickModel"]();
+  const complaint = fakeVscode.window.messages.find((m) => m.level === "error");
+  assert.ok(complaint, "an empty answer is an error");
+  assert.ok(complaint.msg.includes("1.19.0"), "the version the CLI reports is in the message");
+  assert.ok(complaint.msg.includes("opencode2"), "a v1 CLI is told which binary to point at");
+
+  probe.reply = null;
+  probe.calls.length = 0;
+
   console.log("OK: all smoke tests passed");
 })().catch((err) => {
   console.error("FAIL:", err.message);

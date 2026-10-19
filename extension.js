@@ -218,9 +218,9 @@ function activate(context) {
    * supported entry point: it talks to its own server, so the extension never
    * needs a port of its own and inherits whatever version the user runs.
    */
-  const cliCall = async (call, folder) => {
+  const cliRun = async (args, folder) => {
     const cli = await resolveCli(folder);
-    const line = `${cli} api ${call}`;
+    const line = `${cli} ${args}`;
     return new Promise((resolve) => {
       exec(
         line,
@@ -237,6 +237,8 @@ function activate(context) {
     });
   };
 
+  const cliCall = (call, folder) => cliRun(`api ${call}`, folder);
+
   /** Same, parsed. Undefined on failure or when the answer is not JSON. */
   const cliApi = async (call, folder) => {
     const result = await cliCall(call, folder);
@@ -248,6 +250,27 @@ function activate(context) {
     } catch {
       return undefined;
     }
+  };
+
+  /**
+   * Models out of whatever envelope this CLI version answers with. The list has
+   * moved once already, so a shape the parser does not know is not treated as
+   * "no models" until the obvious ones have been tried.
+   */
+  const extractModels = (payload) => {
+    const candidates = [
+      payload && payload.data,
+      payload && payload.data && payload.data.models,
+      payload && payload.data && payload.data.items,
+      payload && payload.models,
+      payload,
+    ];
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) {
+        return candidate;
+      }
+    }
+    return [];
   };
 
   /** Price and context for one model, as the QuickPick detail line. */
@@ -372,10 +395,18 @@ function activate(context) {
     } catch {
       parsed = undefined;
     }
-    const models = parsed && Array.isArray(parsed.data) ? parsed.data : [];
+    const models = extractModels(parsed);
     if (models.length === 0) {
+      // The message has to carry enough to tell a v1 CLI from a changed answer:
+      // the version it reports and what it actually printed.
+      const version = await cliRun("--version", folder);
+      const reported = (version.ok ? version.stdout : version.error).trim().split("\n")[0] || "unknown version";
+      const raw = String(catalog.stdout || "").trim().replace(/\s+/g, " ").slice(0, 220);
+      const hint = /^v?1\./.test(reported)
+        ? " This is OpenCode v1, which has no model API: point `opencode.command` at the v2 binary (often `opencode2`)."
+        : " Check that a provider is configured.";
       void vscode.window.showErrorMessage(
-        `OpenCode answered ${catalog.command} without any models. Check that a provider is configured.`,
+        `The model picker needs OpenCode v2. ${catalog.command.split(" ")[0]} reports "${reported}". It answered: ${raw || "(nothing)"}.${hint}`,
       );
       return;
     }
