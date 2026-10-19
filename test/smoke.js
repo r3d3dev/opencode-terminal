@@ -150,6 +150,70 @@ fakeVscode.workspace.workspaceFolders = [folder("/proj")];
 // `opencodeTerminal.pickModel` builds its items itself; the test only needs to
 // see them and to answer with one.
 fakeVscode.QuickPickItemKind = { Separator: -1 };
+fakeVscode.ThemeIcon = class ThemeIcon {
+  constructor(id) {
+    this.id = id;
+  }
+};
+// Answers as soon as it is shown, so the scenarios stay readable. "hold" leaves
+// it open, which is how the star-button scenario clicks a button first.
+fakeVscode.window.createQuickPick = () => {
+  const quickPick = {
+    items: [],
+    selectedItems: [],
+    placeholder: "",
+    matchOnDescription: false,
+    matchOnDetail: false,
+    _accept: null,
+    _hide: null,
+    _button: null,
+    _disposed: false,
+    onDidAccept(fn) {
+      this._accept = fn;
+      return { dispose() {} };
+    },
+    onDidHide(fn) {
+      this._hide = fn;
+      return { dispose() {} };
+    },
+    onDidTriggerItemButton(fn) {
+      this._button = fn;
+      return { dispose() {} };
+    },
+    show() {
+      quickPickSeen = {
+        items: this.items,
+        options: {
+          placeholder: this.placeholder,
+          matchOnDescription: this.matchOnDescription,
+          matchOnDetail: this.matchOnDetail,
+        },
+      };
+      fakeVscode.window._quickPick = this;
+      if (quickPickAnswer === "hold") {
+        return;
+      }
+      const answer =
+        typeof quickPickAnswer === "function" ? quickPickAnswer(this.items) : quickPickAnswer;
+      if (answer) {
+        this.selectedItems = [answer];
+        if (this._accept) this._accept();
+      } else {
+        this.hide();
+      }
+    },
+    hide() {
+      if (this._disposed) {
+        return;
+      }
+      if (this._hide) this._hide();
+    },
+    dispose() {
+      this._disposed = true;
+    },
+  };
+  return quickPick;
+};
 fakeVscode.window.messages = [];
 fakeVscode.window.showErrorMessage = (msg) => {
   fakeVscode.window.messages.push({ level: "error", msg });
@@ -201,7 +265,16 @@ require.cache[__filename] = {
 
 // --- load extension --------------------------------------------------------
 const ext = require(path.join(__dirname, "..", "extension.js"));
+const globalStore = {};
+const globalState = {
+  get: (key, fallback) => (key in globalStore ? globalStore[key] : fallback),
+  update: (key, value) => {
+    globalStore[key] = value;
+    return Promise.resolve();
+  },
+};
 const context = {
+  globalState,
   subscriptions: [],
   asAbsolutePath: (p) => path.join(__dirname, "..", p),
   workspaceState: {
@@ -635,6 +708,7 @@ const editor = (relPath, selection) => {
 
   const startState = { wasOpen: true };
   const newContext = () => ({
+  globalState,
     subscriptions: [],
     asAbsolutePath: (p) => path.join(__dirname, "..", p),
     workspaceState: {
@@ -787,6 +861,7 @@ const editor = (relPath, selection) => {
   fakeVscode.workspace.settings.openOnStartup = "never";
   const flags = [];
   const flagContext = {
+  globalState,
     subscriptions: [],
     asAbsolutePath: (p) => path.join(__dirname, "..", p),
     workspaceState: {
@@ -1149,6 +1224,70 @@ const editor = (relPath, selection) => {
     ["orcarouter (1)"],
     "the filter is remembered until it is cleared",
   );
+  probe.reply = null;
+  probe.calls.length = 0;
+
+  // 40. the star pins a model into a Favourites section and is kept in global
+  //     state, so it survives the window
+  probe.reply = (command) => {
+    if (command.includes("api model.list")) return { stdout: JSON.stringify(catalog) };
+    if (command.includes("api session.active")) return { stdout: JSON.stringify({ data: { id: "ses_active" } }) };
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickAnswer = "hold";
+  const pending = calls.registered["opencodeTerminal.pickModel"]();
+  for (let tick = 0; tick < 5; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  const picker = fakeVscode.window._quickPick;
+  assert.ok(picker, "the picker is open");
+  const row = picker.items.find((i) => i.model && i.model.id === "orcarouter/auto");
+  assert.ok(row && row.buttons.length === 1, "every model row carries one star button");
+  assert.strictEqual(row.buttons[0].iconPath.id, "star", "an unstarred model shows an outline star");
+
+  picker._button({ item: row, button: row.buttons[0] });
+  assert.deepStrictEqual(
+    globalStore.favoriteModels,
+    ["orcarouter\u0000orcarouter/auto"],
+    "the star is kept in global state",
+  );
+  const starred = picker.items.find((i) => i.model && i.model.id === "orcarouter/auto");
+  assert.strictEqual(starred.buttons[0].iconPath.id, "star-full", "the star fills in");
+  assert.ok(
+    picker.items.some((i) => i.kind === -1 && i.label.includes("Favourites")),
+    "favourites get their own separator",
+  );
+  assert.strictEqual(
+    picker.items.find((i) => i.model).model.id,
+    "orcarouter/auto",
+    "a favourite leads the list",
+  );
+
+  picker.selectedItems = [picker.items.find((i) => i.model)];
+  picker._accept();
+  await pending;
+  assert.ok(probe.calls.some((c) => c.command.includes("switchModel")), "the favourite is switched to");
+
+  // unstarring removes the section again
+  quickPickAnswer = "hold";
+  const again = calls.registered["opencodeTerminal.pickModel"]();
+  for (let tick = 0; tick < 5; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  const picker2 = fakeVscode.window._quickPick;
+  const starredRow = picker2.items.find((i) => i.model && i.model.id === "orcarouter/auto");
+  picker2._button({ item: starredRow, button: starredRow.buttons[0] });
+  assert.deepStrictEqual(globalStore.favoriteModels, [], "unstarring clears the entry");
+  assert.ok(
+    !picker2.items.some((i) => i.kind === -1 && i.label.includes("Favourites")),
+    "and the section disappears",
+  );
+  picker2.hide();
+  await again;
+
+  quickPickAnswer = null;
   probe.reply = null;
   probe.calls.length = 0;
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.14 — 2026-10-19
+
+- **Favourites.** Every model row carries a star: it pins the model to a
+  *Favourites* section at the top of the list, and clicking it again unpins. The
+  picker stays open and the typed query is kept, so several models can be starred
+  in one pass, and the choice is kept in global state, which makes it survive a
+  reload and apply to every project.
+- The picker moved from `showQuickPick` to `createQuickPick`: only the latter
+  reports item buttons, and a star that closed the list on every click would be
+  useless.
+- 40 smoke scenarios, covering starring and unstarring.
+
 ## 0.1.13 — 2026-10-19
 
 - **The model picker filters by provider.** The first row narrows the list to one

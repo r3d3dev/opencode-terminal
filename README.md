@@ -127,6 +127,12 @@ contributes, and each entry says what it costs and how much context it takes. Th
 first row, *Filter by provider*, narrows the list to one provider; the choice is
 remembered for the next invocation until you pick *Every provider*.
 
+Every model row carries a star. Clicking it pins the model to a *Favourites*
+section at the top of the list and clicks again unpins it; the list stays open
+and the typed query is kept, so several models can be starred in one go. The
+choice lives in the window's global state, not in the project: it survives a
+reload and is the same in every workspace.
+
 The choice is applied to the **running** session through the CLI's API
 (`opencode api session.switchModel`), so the open terminal takes the new model
 without a restart. It needs the CLI's server, which the terminal starts anyway,

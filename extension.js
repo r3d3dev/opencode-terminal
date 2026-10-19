@@ -311,6 +311,23 @@ function activate(context) {
     return [...counts.keys()].sort().map((provider) => ({ provider, count: counts.get(provider) }));
   };
 
+  /** One model row: name, id, price, and a star button that toggles it. */
+  const modelRow = (model) => {
+    const starred = isFavorite(model);
+    return {
+      label: model.name || model.id,
+      description: model.id,
+      detail: modelDetails(model),
+      model,
+      buttons: [
+        {
+          iconPath: new vscode.ThemeIcon(starred ? "star-full" : "star"),
+          tooltip: starred ? "Remove from favourites" : "Add to favourites",
+        },
+      ],
+    };
+  };
+
   const modelItems = (models, filter) => {
     const byProvider = new Map();
     for (const model of usableModels(models)) {
@@ -329,6 +346,16 @@ function activate(context) {
         filterRow: true,
       },
     ];
+    // Starred models first: the point of a favourite is not having to scroll.
+    const starred = [...byProvider.values()].flat().filter(isFavorite);
+    if (starred.length > 0) {
+      items.push({ label: "$(star-full) Favourites", kind: vscode.QuickPickItemKind.Separator });
+      for (const model of starred.sort((a, b) =>
+        String(a.name || a.id).localeCompare(String(b.name || b.id)))) {
+        items.push(modelRow(model));
+      }
+    }
+
     for (const provider of [...byProvider.keys()].sort()) {
       items.push({
         label: `${provider} (${byProvider.get(provider).length})`,
@@ -338,12 +365,7 @@ function activate(context) {
         .get(provider)
         .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
       for (const model of list) {
-        items.push({
-          label: model.name || model.id,
-          description: model.id,
-          detail: modelDetails(model),
-          model,
-        });
+        items.push(modelRow(model));
       }
     }
     return items;
@@ -391,6 +413,12 @@ function activate(context) {
   let cliPathCache;
   /** Provider the picker is narrowed to; remembered for the next invocation. */
   let providerFilter;
+
+  /** Starred models, kept in the window's global state so they outlive a window. */
+  const FAVORITES_KEY = "favoriteModels";
+  let favoriteKeys = context.globalState.get(FAVORITES_KEY, []);
+  const favoriteKey = (model) => `${model.providerID}\u0000${model.id}`;
+  const isFavorite = (model) => favoriteKeys.includes(favoriteKey(model));
   const resolveCli = async (folder) => {
     const configured = config().get("command", "opencode");
     if (configured.includes("/")) {
@@ -417,6 +445,75 @@ function activate(context) {
    * it through the CLI's API. Verified on v2: the session takes the new model
    * and the TUI's status line follows without a restart.
    */
+  /**
+   * One showing of the model list. `createQuickPick` rather than `showQuickPick`
+   * because only the former reports item buttons, and a star that closed the
+   * list on every click would be useless.
+   */
+  const showModelPicker = (models) =>
+    new Promise((resolve) => {
+      const quickPick = vscode.window.createQuickPick();
+      quickPick.matchOnDescription = true;
+      quickPick.matchOnDetail = true;
+      quickPick.placeholder = providerFilter
+        ? `Model from ${providerFilter}`
+        : "Model for the running OpenCode session";
+      quickPick.items = modelItems(models, providerFilter);
+      let answered = false;
+      const answer = (result) => {
+        if (answered) {
+          return;
+        }
+        answered = true;
+        resolve(result);
+      };
+      quickPick.onDidTriggerItemButton((event) => {
+        const model = event.item && event.item.model;
+        if (!model) {
+          return;
+        }
+        const key = favoriteKey(model);
+        favoriteKeys = favoriteKeys.includes(key)
+          ? favoriteKeys.filter((entry) => entry !== key)
+          : [...favoriteKeys, key];
+        void context.globalState.update(FAVORITES_KEY, favoriteKeys);
+        // Redraw in place: the query and the scroll position stay as they were.
+        quickPick.items = modelItems(models, providerFilter);
+      });
+      quickPick.onDidAccept(() => {
+        const [item] = quickPick.selectedItems;
+        answer(item ? { kind: item.filterRow ? "filter" : "model", item } : { kind: "dismissed" });
+        quickPick.hide();
+      });
+      quickPick.onDidHide(() => {
+        answer({ kind: "dismissed" });
+        quickPick.dispose();
+      });
+      quickPick.show();
+    });
+
+  /** Apply one picked model to the running session, reporting every failure. */
+  const switchTo = async (item, folder) => {
+    const sessionID = await currentSessionID(folder);
+    if (!sessionID) {
+      void vscode.window.showInformationMessage(
+        "No OpenCode session in this project yet. Send a prompt first, then switch the model.",
+      );
+      return;
+    }
+
+    const body = JSON.stringify({ model: { id: item.model.id, providerID: item.model.providerID } });
+    const result = await cliCall(`session.switchModel --param sessionID=${sessionID} --data ${shellQuote(body)}`, folder);
+    if (!result.ok) {
+      const reason = result.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
+      void vscode.window.showErrorMessage(
+        `OpenCode rejected the switch to ${item.label}. Command tried: ${result.command}. It said: ${reason}`,
+      );
+      return;
+    }
+    void vscode.window.showInformationMessage(`OpenCode model: ${item.label}`);
+  };
+
   const pickModel = async () => {
     const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
     if (!folder) {
@@ -455,48 +552,21 @@ function activate(context) {
     }
 
     const providers = providersOf(models);
-    let picked;
     for (;;) {
-      picked = await vscode.window.showQuickPick(modelItems(models, providerFilter), {
-        placeHolder: providerFilter
-          ? `Model from ${providerFilter}`
-          : "Model for the running OpenCode session",
-        matchOnDescription: true,
-        matchOnDetail: true,
-      });
-      if (!picked) {
+      const answer = await showModelPicker(models);
+      if (answer.kind === "dismissed") {
         return;
       }
-      if (!picked.filterRow) {
-        break;
+      if (answer.kind === "filter") {
+        const choice = await pickProvider(providers);
+        if (choice) {
+          providerFilter = choice.provider;
+        }
+        continue;
       }
-      const choice = await pickProvider(providers);
-      if (choice) {
-        providerFilter = choice.provider;
-      }
-    }
-    if (!picked.model) {
+      await switchTo(answer.item, folder);
       return;
     }
-
-    const sessionID = await currentSessionID(folder);
-    if (!sessionID) {
-      void vscode.window.showInformationMessage(
-        "No OpenCode session in this project yet. Send a prompt first, then switch the model.",
-      );
-      return;
-    }
-
-    const body = JSON.stringify({ model: { id: picked.model.id, providerID: picked.model.providerID } });
-    const result = await cliCall(`session.switchModel --param sessionID=${sessionID} --data ${shellQuote(body)}`, folder);
-    if (!result.ok) {
-      const reason = result.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
-      void vscode.window.showErrorMessage(
-        `OpenCode rejected the switch to ${picked.label}. Command tried: ${result.command}. It said: ${reason}`,
-      );
-      return;
-    }
-    void vscode.window.showInformationMessage(`OpenCode model: ${picked.label}`);
   };
 
   /**
