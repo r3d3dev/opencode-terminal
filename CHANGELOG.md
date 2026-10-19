@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.9 — 2026-10-14
+
+- **The listing is now "OpenCode Terminal"**, without the version marker. A
+  search for `opencode` ranks short names far above long ones and install counts
+  do not explain the order: an extension with 361 installs sits eighth while this
+  one, with 214, is outside the first forty. The id is unchanged, so existing
+  installs keep updating; `v2` stays in the keywords and in the description.
+- **Switch the model of the running session**, with the models grouped by
+  provider. `opencode api model.list` supplies the catalog (provider, price,
+  context window), `session.switchModel` applies the choice to the session that
+  is running, and the TUI's status line follows without a restart — verified on
+  CLI 2.0.27. v2 only: the API does not exist in v1. Failed reads and refusals
+  are reported, never silent; a project without a session gets a hint to send a
+  prompt first.
+- 36 smoke scenarios, three of them for the picker: provider grouping, the
+  no-session answer, and a CLI that cannot be read.
+
 ## 0.1.8 — 2026-10-14
 
 - `--continue` is only added to the launch line when the project already has a

@@ -206,6 +206,156 @@ function activate(context) {
     terminal.sendText(await startCommand(port));
   };
 
+  /** How long one `opencode api` call may take: the CLI boots a client each time. */
+  const API_PROBE_MS = 15000;
+
+  /**
+   * Run one `opencode api` call in the project folder. The CLI is the only
+   * supported entry point: it talks to its own server, so the extension never
+   * needs a port of its own and inherits whatever version the user runs.
+   */
+  const cliCall = (call, folder) =>
+    new Promise((resolve) => {
+      const line = `${config().get("command", "opencode")} api ${call}`;
+      exec(
+        line,
+        { cwd: folder.uri.fsPath, timeout: API_PROBE_MS, maxBuffer: 8 * 1024 * 1024 },
+        (error, stdout, stderr) => {
+          resolve({
+            ok: !error,
+            stdout: stdout || "",
+            error: error ? String(stderr || error.message || "").trim() : "",
+          });
+        },
+      );
+    });
+
+  /** Same, parsed. Undefined on failure or when the answer is not JSON. */
+  const cliApi = async (call, folder) => {
+    const result = await cliCall(call, folder);
+    if (!result.ok) {
+      return undefined;
+    }
+    try {
+      return JSON.parse(result.stdout);
+    } catch {
+      return undefined;
+    }
+  };
+
+  /** Price and context for one model, as the QuickPick detail line. */
+  const modelDetails = (model) => {
+    const cost = Array.isArray(model.cost) ? model.cost[0] : undefined;
+    const free = !cost || (Number(cost.input) === 0 && Number(cost.output) === 0);
+    const price = free ? "free" : `$${cost.input} in / $${cost.output} out per 1M`;
+    const context = Number(model.limit && model.limit.context);
+    let size;
+    if (Number.isFinite(context) && context > 0) {
+      size = context >= 1000000 ? `${Math.round(context / 100000) / 10}M context` : `${Math.round(context / 1000)}K context`;
+    }
+    return [price, size].filter(Boolean).join(" · ");
+  };
+
+  /**
+   * QuickPick items grouped by provider. The v2 picker inside the TUI lists
+   * every model in one flat table — a hundred per provider — which is exactly
+   * what makes it hard to use; a separator per provider is this command's
+   * reason to exist, so the grouping is built here and nowhere else.
+   */
+  const modelItems = (models) => {
+    const byProvider = new Map();
+    for (const model of models) {
+      if (!model || !model.id || !model.providerID) {
+        continue;
+      }
+      if (model.enabled === false || (model.status && model.status !== "active")) {
+        continue;
+      }
+      const list = byProvider.get(model.providerID) || [];
+      list.push(model);
+      byProvider.set(model.providerID, list);
+    }
+
+    const items = [];
+    for (const provider of [...byProvider.keys()].sort()) {
+      items.push({ label: provider, kind: vscode.QuickPickItemKind.Separator });
+      const list = byProvider
+        .get(provider)
+        .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+      for (const model of list) {
+        items.push({
+          label: model.name || model.id,
+          description: model.id,
+          detail: modelDetails(model),
+          model,
+        });
+      }
+    }
+    return items;
+  };
+
+  /** The session to switch: the active one, else the newest in this project. */
+  const currentSessionID = async (folder) => {
+    const active = await cliApi("session.active", folder);
+    if (active && active.data && typeof active.data.id === "string") {
+      return active.data.id;
+    }
+    const listed = await cliApi("session.list", folder);
+    const first = listed && Array.isArray(listed.data) ? listed.data[0] : undefined;
+    return first && typeof first.id === "string" ? first.id : undefined;
+  };
+
+  /** Single-quote a shell argument (the API payload is JSON). */
+  const shellQuote = (text) => `'${String(text).replace(/'/g, `'\\''`)}'`;
+
+  /**
+   * Pick a model with the providers grouped, then switch the running session to
+   * it through the CLI's API. Verified on v2: the session takes the new model
+   * and the TUI's status line follows without a restart.
+   */
+  const pickModel = async () => {
+    const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+    if (!folder) {
+      void vscode.window.showInformationMessage("Open a folder first: OpenCode works per project.");
+      return;
+    }
+
+    const catalog = await cliApi("model.list", folder);
+    const models = catalog && Array.isArray(catalog.data) ? catalog.data : [];
+    if (models.length === 0) {
+      void vscode.window.showErrorMessage(
+        "Could not read the model list from OpenCode. Is the CLI on PATH and its server running?",
+      );
+      return;
+    }
+
+    const picked = await vscode.window.showQuickPick(modelItems(models), {
+      placeHolder: "Model for the running OpenCode session",
+      matchOnDescription: true,
+      matchOnDetail: true,
+    });
+    if (!picked || !picked.model) {
+      return;
+    }
+
+    const sessionID = await currentSessionID(folder);
+    if (!sessionID) {
+      void vscode.window.showInformationMessage(
+        "No OpenCode session in this project yet. Send a prompt first, then switch the model.",
+      );
+      return;
+    }
+
+    const body = JSON.stringify({ model: { id: picked.model.id, providerID: picked.model.providerID } });
+    const result = await cliCall(`session.switchModel --param sessionID=${sessionID} --data ${shellQuote(body)}`, folder);
+    if (!result.ok) {
+      const reason = result.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
+      void vscode.window.showErrorMessage(`OpenCode rejected the switch to ${picked.label}: ${reason}`);
+      return;
+    }
+    void vscode.window.showInformationMessage(`OpenCode model: ${picked.label}`);
+  };
+
   /**
    * Terminals started in this window. Used to remember, across restarts, whether
    * OpenCode was open when the window closed — the signal that decides whether
@@ -581,6 +731,7 @@ function activate(context) {
     vscode.commands.registerCommand("opencodeTerminal.openNew", openNew),
     vscode.commands.registerCommand("opencodeTerminal.insertFileRef", insertFileRef),
     vscode.commands.registerCommand("opencodeTerminal.addFiles", addExplorerFiles),
+    vscode.commands.registerCommand("opencodeTerminal.pickModel", pickModel),
     vscode.window.onDidCloseTerminal((terminal) => {
       // Ran out of OpenCode terminals: the next window should not bring one up.
       if (ours.delete(terminal) && ours.size === 0) {

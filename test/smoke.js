@@ -146,6 +146,30 @@ fakeVscode.workspace._relPath = "src/app.ts";
 const folder = (fsPath) => ({ uri: { fsPath, toString: () => `file://${fsPath}` } });
 fakeVscode.workspace.workspaceFolders = [folder("/proj")];
 
+// --- fake QuickPick --------------------------------------------------------
+// `opencodeTerminal.pickModel` builds its items itself; the test only needs to
+// see them and to answer with one.
+fakeVscode.QuickPickItemKind = { Separator: -1 };
+fakeVscode.window.messages = [];
+fakeVscode.window.showErrorMessage = (msg) => {
+  fakeVscode.window.messages.push({ level: "error", msg });
+  return Promise.resolve();
+};
+// Wrapped, not replaced: an earlier scenario counts the original handler's
+// messages, so the hint checks keep working while the new scenarios read the
+// recorded text.
+const originalInfo = fakeVscode.window.showInformationMessage;
+fakeVscode.window.showInformationMessage = (msg) => {
+  fakeVscode.window.messages.push({ level: "info", msg });
+  return originalInfo.call(fakeVscode.window, msg);
+};
+let quickPickSeen = null;
+let quickPickAnswer = null;
+fakeVscode.window.showQuickPick = async (items, options) => {
+  quickPickSeen = { items, options };
+  return typeof quickPickAnswer === "function" ? quickPickAnswer(items) : quickPickAnswer;
+};
+
 // --- fake `opencode session list` probe ------------------------------------
 // The extension shells out once per launch to learn whether the project already
 // has a session to continue. Tests drive the answer through `probe.stdout`;
@@ -154,7 +178,11 @@ const probe = { calls: [], stdout: '[{"id":"ses_0000000000000000000000000"}]', e
 const childProcess = require("child_process");
 childProcess.exec = (command, options, callback) => {
   probe.calls.push({ command, options });
-  process.nextTick(() => callback(probe.error, probe.stdout, ""));
+  const reply =
+    typeof probe.reply === "function"
+      ? probe.reply(command)
+      : { stdout: probe.stdout, error: probe.error };
+  process.nextTick(() => callback(reply.error, reply.stdout, reply.stderr || ""));
   return {};
 };
 
@@ -191,13 +219,14 @@ assert.deepStrictEqual(
     "opencodeTerminal.insertFileRef",
     "opencodeTerminal.open",
     "opencodeTerminal.openNew",
+    "opencodeTerminal.pickModel",
   ],
   "all four commands registered",
 );
 assert.strictEqual(
   context.subscriptions.length,
-  5,
-  "subscriptions pushed (4 commands + terminal-close listener)",
+  6,
+  "subscriptions pushed (5 commands + terminal-close listener)",
 );
 
 const editor = (relPath, selection) => {
@@ -942,6 +971,74 @@ const editor = (relPath, selection) => {
     ),
     "the Explorer-only command stays out of the palette",
   );
+
+  // 34. the model picker groups models by provider and switches the running
+  //     session through the CLI's own API
+  fakeVscode.workspace.workspaceFolders = [folder("/proj")];
+  const catalog = {
+    data: [
+      { id: "exo-free", providerID: "opencode", name: "Exo Free", status: "active", enabled: true,
+        cost: [{ input: 0, output: 0 }], limit: { context: 1048576 } },
+      { id: "orcarouter/auto", providerID: "orcarouter", name: "OrcaRouter Auto", status: "active", enabled: true,
+        cost: [{ input: 0.1, output: 0.4 }], limit: { context: 128000 } },
+      { id: "off", providerID: "opencode", name: "Disabled", status: "inactive", enabled: false },
+    ],
+  };
+  probe.reply = (command) => {
+    if (command.includes("api model.list")) return { stdout: JSON.stringify(catalog) };
+    if (command.includes("api session.active")) return { stdout: JSON.stringify({ data: { id: "ses_active" } }) };
+    if (command.includes("api session.switchModel")) return { stdout: "" };
+    return { stdout: "[]" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickSeen = null;
+  quickPickAnswer = (items) => items.find((i) => i.model && i.model.id === "orcarouter/auto");
+  await calls.registered["opencodeTerminal.pickModel"]();
+
+  const seenItems = quickPickSeen.items;
+  assert.deepStrictEqual(
+    seenItems.filter((i) => i.kind === -1).map((i) => i.label),
+    ["opencode", "orcarouter"],
+    "providers become separators, sorted",
+  );
+  assert.ok(!seenItems.some((i) => i.model && i.model.id === "off"), "disabled models are left out");
+  assert.ok(seenItems.some((i) => i.model && i.detail.includes("free")), "free models say so");
+  assert.strictEqual(quickPickSeen.options.matchOnDescription, true, "models are searchable by id");
+  const switchCall = probe.calls.find((c) => c.command.includes("session.switchModel"));
+  assert.ok(switchCall, "the switch goes through the CLI API");
+  assert.ok(switchCall.command.includes("sessionID=ses_active"), "the active session is the target");
+  assert.ok(switchCall.command.includes('"providerID":"orcarouter"'), "the payload carries the provider");
+  assert.ok(
+    fakeVscode.window.messages.some((m) => m.level === "info" && m.msg.includes("OrcaRouter Auto")),
+    "the switch is confirmed",
+  );
+
+  // 35. no session yet: nothing to switch, and the user is told why
+  probe.reply = (command) => {
+    if (command.includes("api model.list")) return { stdout: JSON.stringify(catalog) };
+    if (command.includes("api session.active")) return { stdout: JSON.stringify({ data: null }) };
+    if (command.includes("api session.list")) return { stdout: JSON.stringify({ data: [] }) };
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickAnswer = (items) => items.find((i) => i.model);
+  await calls.registered["opencodeTerminal.pickModel"]();
+  assert.ok(!probe.calls.some((c) => c.command.includes("switchModel")), "nothing is switched without a session");
+  assert.ok(
+    fakeVscode.window.messages.some((m) => m.msg.includes("Send a prompt first")),
+    "the user is told what to do",
+  );
+
+  // 36. an unreadable catalog is an error, not silence
+  probe.reply = () => ({ error: new Error("spawn opencode ENOENT") });
+  fakeVscode.window.messages.length = 0;
+  quickPickAnswer = null;
+  await calls.registered["opencodeTerminal.pickModel"]();
+  assert.ok(fakeVscode.window.messages.some((m) => m.level === "error"), "a failed read is reported");
+  probe.reply = null;
+  probe.calls.length = 0;
 
   console.log("OK: all smoke tests passed");
 })().catch((err) => {

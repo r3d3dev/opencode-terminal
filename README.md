@@ -59,6 +59,7 @@ second is the official one; a cell reads *macOS / Windows · Linux*.
 | **OpenCode: Open in Terminal** | `Cmd+Ctrl+O`<br>`Cmd+Esc` | `Ctrl+Alt+O`<br>`Ctrl+Esc` | Open OpenCode in a group of its own beside the editor; reuses an existing `opencode` terminal. |
 | **OpenCode: Open in New Terminal** | `Cmd+Ctrl+N`<br>`Cmd+Shift+Esc` | `Ctrl+Alt+N`<br>`Ctrl+Shift+Esc` | Always start a fresh terminal with OpenCode. |
 | **Send to OpenCode** | `Cmd+Ctrl+P`<br>`Cmd+Alt+K` | `Ctrl+Alt+P`<br>`Ctrl+Alt+K` | Send the selected text, or an `@file` reference — see *Sending files or text* below. |
+| **OpenCode: Switch Model** | `Cmd+Ctrl+M` | `Ctrl+Alt+M` | Pick a model with the providers grouped; applied to the running session — see *Switching the model* below. |
 
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
@@ -115,6 +116,21 @@ back, override the binding in `tui.json`:
 The v1 names (`agent_cycle`, `agent_cycle_reverse`) still work — the CLI migrates
 them. Binding `Tab` to agent cycling brings the old collision back, though:
 `Tab` then both switches the agent and accepts the autocomplete.
+
+## Switching the model
+
+`Cmd+Ctrl+M` (`Ctrl+Alt+M`) opens a model picker for the running session with the
+models grouped by provider. The CLI's own picker in v2 puts every model of every
+provider into one flat list, which stops being usable as soon as a few providers
+are configured; here each provider is a separator and each entry says what it
+costs and how much context it takes.
+
+The choice is applied to the **running** session through the CLI's API
+(`opencode api session.switchModel`), so the open terminal takes the new model
+without a restart. It needs the CLI's server, which the terminal starts anyway,
+and it is v2 only — the API does not exist in v1. A project with no session yet
+is answered with a hint to send a prompt first, and a failed read or a refused
+switch is reported instead of passing silently.
 
 ## Reopening the window
 
