@@ -711,8 +711,9 @@ const editor = (relPath, selection) => {
   );
   fakeVscode.workspace.workspaceFolders = [folder("/proj")];
 
-  // 25. a terminal handed back by the previous window is taken over instead of
-  //     being duplicated: its tab keeps its group and runs the command
+  // 25. a terminal of ours that comes back is taken over instead of being
+  //     duplicated, and nothing is typed into it: its OpenCode is still running,
+  //     so the launch line would reach the agent as a prompt
   fakeVscode.workspace.settings.openOnStartup = "restore";
   startState.wasOpen = true;
   fakeVscode.window.terminals.length = 0;
@@ -721,11 +722,7 @@ const editor = (relPath, selection) => {
   reload().activate(newContext());
   await new Promise((r) => setImmediate(r));
   assert.strictEqual(calls.createdTerminals.length, baseline, "no second terminal opened");
-  assert.deepStrictEqual(
-    restored.sent.map((s) => s.text),
-    ["opencode --continue"],
-    "the restored tab takes the command",
-  );
+  assert.deepStrictEqual(restored.sent.map((s) => s.text), [], "the live tab is left alone");
 
   // 25b. the restored tab is recognised by our env marker when the name differs
   fakeVscode.window.terminals.length = 0;
@@ -739,8 +736,8 @@ const editor = (relPath, selection) => {
   assert.strictEqual(calls.createdTerminals.length, baseline, "still no duplicate");
   assert.deepStrictEqual(
     restoredByEnv.sent.map((s) => s.text),
-    ["opencode --continue"],
-    "env marker is enough to take the tab over",
+    [],
+    "a tab recognised by its env marker is left alone too",
   );
 
   // 25c. a group that came back empty is filled with the terminal instead of

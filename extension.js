@@ -543,8 +543,11 @@ function activate(context) {
   const startAtStartup = async (expectRestore) => {
     const found = expectRestore ? await waitForWindowRestore() : { group: findEmptyGroup() };
     if (found.terminal) {
+      // A terminal of ours outlives an extension restart, and the OpenCode inside
+      // it is still running: typing the launch line there hands it to the agent
+      // as a prompt. Bring the tab forward and leave it alone. A shell that lost
+      // its OpenCode is the rarer case, and `opencode` there is one keypress away.
       found.terminal.show();
-      await startOpenCode(found.terminal, portOf(found.terminal));
       return;
     }
 

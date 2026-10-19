@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.12 — 2026-10-19
+
+- **Restarting the extension no longer types the launch line into the running
+  agent.** A terminal of ours survives an extension restart with OpenCode still
+  inside it, and the startup path sent `opencode --continue` into that live tab,
+  where the agent read it as a prompt. A recovered tab is now only brought to the
+  front. The tab is recognised by its name and by the env marker alike, so a
+  renamed tab is covered too.
+- A tab whose OpenCode has exited is left alone as well: the editor offers no way
+  to tell a live TUI from an idle shell, and one needless keypress beats a stray
+  prompt in a session.
+- 38 smoke scenarios, two of them pinning down that a recovered tab is never
+  written to.
+
 ## 0.1.11 — 2026-10-19
 
 - **The model list is read from any envelope the CLI uses**, not only the flat
