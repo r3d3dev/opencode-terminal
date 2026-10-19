@@ -1,4 +1,4 @@
-# OpenCode v2 Terminal
+# OpenCode Terminal
 
 [![CI](https://github.com/r3d3dev/opencode-terminal/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/r3d3dev/opencode-terminal/actions/workflows/ci.yml)
 [![version](https://img.shields.io/github/v/tag/r3d3dev/opencode-terminal?sort=semver&label=version)](https://github.com/r3d3dev/opencode-terminal/tags)
@@ -187,7 +187,7 @@ terminal title actions (`+`, split, kill).
 code --install-extension r3d3dev.opencode-terminal-cli
 ```
 
-Install from the **VS Code Marketplace** (search *OpenCode v2 Terminal*) or from
+Install from the **VS Code Marketplace** (search *OpenCode Terminal*) or from
 **Open VSX** for VSCodium, code-oss and Gitpod. Every path — both marketplaces, a
 `.vsix` from
 [Releases](https://github.com/r3d3dev/opencode-terminal/releases/latest), and
