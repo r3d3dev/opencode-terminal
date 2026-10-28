@@ -1,4 +1,4 @@
-# Installing OpenCode TUI
+# Installing OpenCode Term
 
 Every way to install the extension, from the quickest to a build straight from
 source. Pick one path; they all end with the same extension
@@ -23,7 +23,7 @@ source. Pick one path; they all end with the same extension
 
 ## 1. VS Code Marketplace
 
-Search **OpenCode TUI** in the Extensions view (`Cmd/Ctrl+Shift+X`), or
+Search **OpenCode Term** in the Extensions view (`Cmd/Ctrl+Shift+X`), or
 install from the command line:
 
 ```bash
@@ -46,7 +46,7 @@ VSCodium / code-oss:
 codium --install-extension r3d3dev.opencode-terminal-cli
 ```
 
-Or in the editor: Extensions view → search **OpenCode TUI** → Install.
+Or in the editor: Extensions view → search **OpenCode Term** → Install.
 
 Without an editor, the [`ovsx`](https://github.com/eclipse/openvsx) CLI can pull
 the packaged build:

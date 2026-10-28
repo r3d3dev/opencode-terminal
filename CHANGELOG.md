@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.18 — 2026-10-28
+
+- **The listing is "OpenCode Term".** The Marketplace refused "OpenCode Terminal"
+  as taken and "OpenCode TUI" as too close to "OpenCode GUI", so the name settles
+  on the shortest form that keeps the lead word. The id is unchanged, so installs
+  keep updating; only the display name, the readme, the installation guide and the
+  configuration section title move.
+
 ## 0.1.17 — 2026-10-28
 
 - **The listing is "OpenCode TUI".** The Marketplace refused "OpenCode Terminal"

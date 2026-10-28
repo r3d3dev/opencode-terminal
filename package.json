@@ -1,8 +1,8 @@
 {
   "name": "opencode-terminal-cli",
-  "displayName": "OpenCode TUI",
+  "displayName": "OpenCode Term",
   "description": "OpenCode terminal launcher for VS Code: open the OpenCode CLI agent in the integrated terminal with one shortcut and insert @file references from the editor. A dependency-free alternative to the official sst-dev.opencode extension, which stopped working with OpenCode CLI v2. Works with CLI v1 and v2.",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "publisher": "r3d3dev",
   "license": "MIT",
   "author": {
@@ -195,7 +195,7 @@
       ]
     },
     "configuration": {
-      "title": "OpenCode TUI",
+      "title": "OpenCode Term",
       "properties": {
         "opencode.integration": {
           "type": "string",
