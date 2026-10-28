@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.17 — 2026-10-28
+
+- **The listing is "OpenCode TUI".** The Marketplace refused "OpenCode Terminal"
+  as taken — no published extension carries that display name, so a hidden or
+  unlisted one holds it — and the name has to change before the release can be
+  uploaded at all. Two words, same lead, and it says what the extension is: the
+  terminal UI for OpenCode. The id is unchanged, so installs keep updating; the
+  name is carried through the manifest, the readme, the installation guide and
+  the configuration section title.
+- Everything from 0.1.9 to 0.1.16 ships in this release: the naming change, the
+  model picker with provider grouping, provider filter and favourites, and the
+  fixes for the CLI lookup, the wrapped answer and the truncated one.
+
 ## 0.1.16 — 2026-10-19
 
 - **The catalogue is read from a file, not from the CLI's pipe.** On a large
