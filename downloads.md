@@ -1,11 +1,11 @@
 # Downloads
 
-**1187** in total, counted 2026-10-27 03:51 UTC.
+**1199** in total, counted 2026-10-28 04:00 UTC.
 
 | Source | Downloads | Where the number comes from |
 | --- | --- | --- |
-| [Open VSX](https://open-vsx.org/extension/r3d3dev/opencode-terminal-cli) | 970 | `downloadCount` in [`/api/r3d3dev/opencode-terminal-cli`](https://open-vsx.org/api/r3d3dev/opencode-terminal-cli) |
-| [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=r3d3dev.opencode-terminal-cli) | 204 | `downloadCount` in the gallery's `extensionquery` response |
+| [Open VSX](https://open-vsx.org/extension/r3d3dev/opencode-terminal-cli) | 980 | `downloadCount` in [`/api/r3d3dev/opencode-terminal-cli`](https://open-vsx.org/api/r3d3dev/opencode-terminal-cli) |
+| [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=r3d3dev.opencode-terminal-cli) | 206 | `downloadCount` in the gallery's `extensionquery` response |
 | [GitHub releases](https://github.com/r3d3dev/opencode-terminal/releases) | 13 | `download_count` summed over every release asset |
 
 This is what the `downloads` badge in the README shows. The badge renders
