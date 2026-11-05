@@ -574,6 +574,145 @@ function activate(context) {
     void vscode.window.showInformationMessage(`OpenCode model: ${item.label}`);
   };
 
+  /** The array inside the CLI's answer, whatever the envelope is called. */
+  const arrayFrom = (payload) => {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+    const data = payload && payload.data;
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items;
+    }
+    if (data && Array.isArray(data.models)) {
+      return data.models;
+    }
+    return [];
+  };
+
+  /** One row per MCP server: what it is, how it stands, and a plug button. */
+  const mcpRow = (server) => {
+    const state = (server.status && server.status.status) || "unknown";
+    const face =
+      {
+        connected: { icon: "$(pass-filled)", text: "connected" },
+        pending: { icon: "$(sync~spin)", text: "connecting" },
+        disabled: { icon: "$(circle-outline)", text: "disabled" },
+        failed: { icon: "$(error)", text: "failed" },
+        needs_auth: { icon: "$(warning)", text: "needs sign-in" },
+      }[state] || { icon: "$(circle-outline)", text: state };
+    return {
+      label: `${face.icon} ${server.title || server.name}`,
+      description: face.text,
+      detail: server.status && server.status.error ? String(server.status.error).slice(0, 200) : server.name,
+      server,
+      state,
+      buttons: [
+        {
+          iconPath: new vscode.ThemeIcon(state === "connected" ? "debug-disconnect" : "plug"),
+          tooltip: state === "connected" ? "Disconnect" : "Connect",
+        },
+      ],
+    };
+  };
+
+  /** The MCP servers of this project, as the CLI reports them. */
+  const mcpServers = async (folder) => {
+    const answer = await cliCall("mcp.list", folder);
+    if (!answer.ok) {
+      return { ok: false, answer, servers: [] };
+    }
+    const parsed = parseJsonLoose(answer.stdout);
+    return { ok: true, answer, servers: parsed.ok ? arrayFrom(parsed.value) : [] };
+  };
+
+  /** Connect a server that is down, disconnect one that is up. */
+  const flipMcp = async (server, folder) => {
+    const state = (server.status && server.status.status) || "";
+    const down = state === "connected" || state === "pending";
+    const operation = down ? "experimental.mcp.disconnect" : "experimental.mcp.connect";
+    const result = await cliCall(`${operation} --param server=${shellQuote(server.name)}`, folder);
+    if (!result.ok) {
+      const reason = result.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
+      void vscode.window.showErrorMessage(
+        `OpenCode could not ${down ? "disconnect" : "connect"} ${server.name}. Command tried: ${result.command}. It said: ${reason}`,
+      );
+    }
+  };
+
+  /**
+   * The MCP window: every server with its state, a plug to flip it, and the
+   * error text when it failed. The list refreshes in place, because connecting a
+   * server takes a moment and the state after it is the point of the window.
+   */
+  const pickMcp = async () => {
+    const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+    if (!folder) {
+      void vscode.window.showInformationMessage("Open a folder first: OpenCode works per project.");
+      return;
+    }
+
+    const first = await mcpServers(folder);
+    if (!first.ok) {
+      const reason = first.answer.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
+      void vscode.window.showErrorMessage(
+        `Could not read the MCP servers. Command tried: ${first.answer.command}. It said: ${reason}`,
+      );
+      return;
+    }
+    if (first.servers.length === 0) {
+      void vscode.window.showInformationMessage(
+        "No MCP servers are configured for this project. Add them to OpenCode's own configuration.",
+      );
+      return;
+    }
+
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.matchOnDescription = true;
+    quickPick.placeholder = "MCP servers: pick one or its plug to connect or disconnect";
+    let servers = first.servers;
+    let busy = false;
+    const refresh = () => {
+      quickPick.items = servers.map(mcpRow);
+    };
+    refresh();
+
+    const flip = async (server) => {
+      if (busy) {
+        return;
+      }
+      busy = true;
+      quickPick.busy = true;
+      try {
+        await flipMcp(server, folder);
+        const next = await mcpServers(folder);
+        if (next.ok) {
+          servers = next.servers;
+          refresh();
+        }
+      } finally {
+        quickPick.busy = false;
+        busy = false;
+      }
+    };
+
+    quickPick.onDidTriggerItemButton((event) => {
+      if (event.item && event.item.server) {
+        void flip(event.item.server);
+      }
+    });
+    quickPick.onDidAccept(() => {
+      const [item] = quickPick.selectedItems;
+      if (item && item.server) {
+        void flip(item.server);
+      }
+    });
+    quickPick.onDidHide(() => quickPick.dispose());
+    quickPick.show();
+  };
+
   const pickModel = async () => {
     const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
     if (!folder) {
@@ -1007,6 +1146,7 @@ function activate(context) {
     vscode.commands.registerCommand("opencodeTerminal.insertFileRef", insertFileRef),
     vscode.commands.registerCommand("opencodeTerminal.addFiles", addExplorerFiles),
     vscode.commands.registerCommand("opencodeTerminal.pickModel", pickModel),
+    vscode.commands.registerCommand("opencodeTerminal.mcp", pickMcp),
     vscode.window.onDidCloseTerminal((terminal) => {
       // Ran out of OpenCode terminals: the next window should not bring one up.
       if (ours.delete(terminal) && ours.size === 0) {

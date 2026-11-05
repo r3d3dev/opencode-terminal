@@ -60,6 +60,7 @@ second is the official one; a cell reads *macOS / Windows · Linux*.
 | **OpenCode: Open in New Terminal** | `Cmd+Ctrl+N`<br>`Cmd+Shift+Esc` | `Ctrl+Alt+N`<br>`Ctrl+Shift+Esc` | Always start a fresh terminal with OpenCode. |
 | **Send to OpenCode** | `Cmd+Ctrl+P`<br>`Cmd+Alt+K` | `Ctrl+Alt+P`<br>`Ctrl+Alt+K` | Send the selected text, or an `@file` reference — see *Sending files or text* below. |
 | **OpenCode: Switch Model** | `Cmd+Ctrl+M` | `Ctrl+Alt+M` | Pick a model with the providers grouped; applied to the running session — see *Switching the model* below. |
+| **OpenCode: MCP Servers** | `Cmd+Ctrl+,` | `Ctrl+Alt+,` | See each MCP server's state and connect or disconnect it — see *MCP servers* below. |
 
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
@@ -139,6 +140,20 @@ without a restart. It needs the CLI's server, which the terminal starts anyway,
 and it is v2 only — the API does not exist in v1. A project with no session yet
 is answered with a hint to send a prompt first, and a failed read or a refused
 switch is reported instead of passing silently.
+
+## MCP servers
+
+`Cmd+Ctrl+,` (`Ctrl+Alt+,`) shows every MCP server the project knows, with the
+state the CLI reports: connected, connecting, disabled, failed, or waiting for a
+sign-in. A failed server shows its error on the row, which is usually the whole
+answer to why a tool is missing.
+
+Picking a row — or clicking its plug — connects a server that is down and
+disconnects one that is up, through the CLI's own API (`mcp.list`,
+`experimental.mcp.connect` and `experimental.mcp.disconnect`). The list refreshes
+in place, so the state after the flip is what you see, and the window stays open
+to flip another one. Servers are defined in OpenCode's own configuration, not
+here: this window only switches them.
 
 ## Reopening the window
 

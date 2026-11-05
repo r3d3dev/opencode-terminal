@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.19 — 2026-10-28
+
+- **An MCP window** on `Cmd+Ctrl+,` (`Ctrl+Alt+,`): every server the project
+  knows with its state — connected, connecting, disabled, failed, needs sign-in —
+  and the error text on a failed row, which is usually the answer to why a tool
+  is missing. Picking a row or clicking its plug connects or disconnects it
+  through the CLI's own API (`mcp.list`, `experimental.mcp.connect`,
+  `experimental.mcp.disconnect`), and the list refreshes in place so the state
+  after the flip is what the row shows.
+- 42 smoke scenarios, one of them walking an MCP server through disconnect and
+  connect.
+
 ## 0.1.18 — 2026-10-28
 
 - **The listing is "OpenCode Term".** The Marketplace refused "OpenCode Terminal"

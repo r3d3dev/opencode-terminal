@@ -290,16 +290,17 @@ assert.deepStrictEqual(
   [
     "opencodeTerminal.addFiles",
     "opencodeTerminal.insertFileRef",
+    "opencodeTerminal.mcp",
     "opencodeTerminal.open",
     "opencodeTerminal.openNew",
     "opencodeTerminal.pickModel",
   ],
-  "all four commands registered",
+  "all six commands registered",
 );
 assert.strictEqual(
   context.subscriptions.length,
-  6,
-  "subscriptions pushed (5 commands + terminal-close listener)",
+  7,
+  "subscriptions pushed (6 commands + terminal-close listener)",
 );
 
 const editor = (relPath, selection) => {
@@ -1313,6 +1314,64 @@ const editor = (relPath, selection) => {
     "and the models are there",
   );
   assert.ok(!fakeVscode.window.messages.some((m) => m.level === "error"), "no error is reported");
+  probe.reply = null;
+  probe.calls.length = 0;
+
+  // 42. the MCP window lists every server with its state, shows the failure text
+  //     and flips a server through the CLI's own API
+  let mcpUp = true;
+  const mcpPayload = () => ({
+    data: [
+      { name: "github", title: "GitHub", status: { status: mcpUp ? "connected" : "disabled" } },
+      { name: "sentry", status: { status: "failed", error: "spawn ENOENT" } },
+    ],
+  });
+  probe.reply = (command) => {
+    if (command.includes("api mcp.list")) return { stdout: JSON.stringify(mcpPayload()) };
+    if (command.includes("experimental.mcp.disconnect")) {
+      mcpUp = false;
+      return { stdout: "{}" };
+    }
+    if (command.includes("experimental.mcp.connect")) {
+      mcpUp = true;
+      return { stdout: "{}" };
+    }
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickAnswer = "hold";
+  const mcpPending = calls.registered["opencodeTerminal.mcp"]();
+  for (let tick = 0; tick < 6; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  const mcpPicker = fakeVscode.window._quickPick;
+  assert.ok(mcpPicker, "the MCP window opens");
+  assert.strictEqual(mcpPicker.items.length, 2, "one row per server");
+  assert.ok(mcpPicker.items[0].label.includes("GitHub"), "the title is preferred over the id");
+  assert.strictEqual(mcpPicker.items[0].description, "connected", "the state is the description");
+  assert.ok(mcpPicker.items[1].detail.includes("spawn ENOENT"), "the failure text is shown");
+
+  mcpPicker._button({ item: mcpPicker.items[0], button: mcpPicker.items[0].buttons[0] });
+  for (let tick = 0; tick < 6; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  assert.ok(
+    probe.calls.some((c) => c.command.includes("experimental.mcp.disconnect") && c.command.includes("server='github'")),
+    "a connected server is disconnected",
+  );
+  assert.strictEqual(mcpPicker.items[0].description, "disabled", "and the row follows");
+
+  mcpPicker._button({ item: mcpPicker.items[0], button: mcpPicker.items[0].buttons[0] });
+  for (let tick = 0; tick < 6; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  assert.ok(probe.calls.some((c) => c.command.includes("experimental.mcp.connect")), "a down server is connected");
+  assert.strictEqual(mcpPicker.items[0].description, "connected", "the row follows again");
+
+  mcpPicker.hide();
+  await mcpPending;
+  quickPickAnswer = null;
   probe.reply = null;
   probe.calls.length = 0;
 
