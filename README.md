@@ -6,40 +6,49 @@
 [![OpenCode CLI](https://img.shields.io/npm/v/@opencode/cli?label=OpenCode%20CLI)](https://www.npmjs.com/package/@opencode/cli)
 [![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fr3d3dev%2Fopencode-terminal%2Fbadges%2Fdownloads.json)](https://github.com/r3d3dev/opencode-terminal/blob/badges/downloads.md)
 
-VS Code extension that puts the [OpenCode](https://opencode.ai) CLI agent in a
-group of its own beside your code, opens it with one shortcut, and hands it what
-you have selected — the selected text itself, or an `@file` reference.
+OpenCode terminal for VS Code: the agent in a group beside your code, one
+shortcut away, with the file or snippet you selected already in the prompt — plus
+the two things the TUI makes you do by hand, switching models and managing MCP
+servers.
 
-You do not need an extension to use OpenCode in the IDE: open any terminal
-(`Ctrl`/`Cmd` + `` ` ``) and type `opencode`. This one is for when you want the
-shortcut, a dedicated group for the agent, and the selection wired straight into
-the prompt.
+You do not need an extension to run OpenCode in the IDE: open any terminal
+(`Ctrl`/`Cmd` + `` ` ``) and type `opencode`. This one is for the shortcut, the
+dedicated group for the agent, and the selection wired straight into the prompt.
 
-Two sets of chords: the ones the official extension uses, and this extension's
-own `Cmd+Ctrl+…` (`Ctrl+Alt+…` elsewhere) — the full list is under *Commands &
-keybindings* below.
+```
+code --install-extension r3d3dev.opencode-terminal-cli
+```
 
-- **No server, no port, no leftovers.** Unlike the official v2 extension it never
-  starts `opencode serve` on a fixed port 4096, so there is no *Is port 4096 in
-  use?* and no stray process left behind on reload — it types into a terminal
-  instead. Even the opt-in v1 mode asks the OS for a free port, one per terminal.
-- **Works the same on CLI v1 and v2.** The default path uses no version-specific
-  flags and no HTTP API of its own, so a CLI upgrade cannot break it.
+## What you get
+
+- **The model picker the TUI does not have.** `Cmd+Ctrl+M` lists every model
+  grouped by provider, with price and context window on each row, a provider
+  filter and favourites. The pick lands on the session that is already running:
+  no restart, no lost conversation.
+- **MCP servers in one window.** `Cmd+Ctrl+,` shows every server with the state
+  the CLI reports and the error text when it failed, and connects or disconnects
+  it with one click. Favourites pin the ones you actually use.
 - **Your selection arrives as text and waits for Enter.** A multi-line snippet
   lands as one block with its line breaks intact (the terminal's own bracketed
   paste); nothing is submitted behind your back. The clipboard is borrowed for
   that moment and put back.
-- **The agent gets its own group, without layout jumps.** It opens beside the
-  editor; on reload the tab VS Code hands back is taken over instead of a second
-  one appearing and vanishing.
-- **Reopening the window brings it back running** — resuming the last session of
-  *this* project, and only when that project has a session to resume. A workspace
-  where OpenCode was not running stays clean.
-- **Editor or Explorer, one line, no duplicates.** `@relative/path`,
-  `@file#L10-20` for a line selection, several files as `@a.ts @b.ts`; both
-  right-click menus carry it.
+- **`@file` references from the editor and the Explorer.** `@relative/path`,
+  `@file#L10-20` for a line selection, several files as `@a.ts @b.ts` — both
+  right-click menus carry it, one line, no duplicates.
+- **One shortcut, its own group, no layout jumps.** It opens beside the editor
+  and takes over the tab VS Code hands back on reload instead of stacking a
+  second one.
+- **A window that reopens running** — resuming the last session of *this*
+  project, and only when that project has one. A workspace where OpenCode was
+  not running stays clean.
+- **No server, no fixed port, no leftovers.** It types into a terminal instead of
+  starting `opencode serve` on port 4096, so there is no *Is port 4096 in use?*
+  and no stray process after a reload. Even the opt-in v1 mode asks the OS for a
+  free port, one per terminal.
+- **Works the same on CLI v1 and v2.** The default path uses no version-specific
+  flags and no HTTP API of its own, so a CLI upgrade cannot break it.
 - **Nothing behind the scenes, and it is tested.** One `extension.js`, zero
-  runtime dependencies, no bundled CLI, no telemetry, MIT — with 33 smoke
+  runtime dependencies, no bundled CLI, no telemetry, MIT — with 43 smoke
   scenarios (`npm test`) that run the extension without VS Code.
 
 A small, dependency-free alternative to the official `sst-dev.opencode`

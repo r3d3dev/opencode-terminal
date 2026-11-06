@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.21 — 2026-11-06
+
+- **The listing now sells what the extension does.** The readme opens with the
+  model picker and the MCP window instead of a description of the mechanism, then
+  gives the features as benefits above the reference tables. The short
+  description leads with the query words and names the four things a user gets;
+  it no longer spends its first line on the alternative-to-sst-dev framing.
+- **Keywords cut from 29 to 12.** Long tails of near-duplicates (`vscode
+  extension`, `keybindings`, `replacement`, `cli agent`) diluting the tags
+  without matching a query; what is left are the words people type: the subject,
+  its versions, `terminal`, `tui`, `model picker`, `mcp`.
+
 ## 0.1.20 — 2026-10-28
 
 - **Favourites in the MCP window.** The star on a row pins a server into a
