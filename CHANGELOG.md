@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.22 — 2026-11-06
+
+- **Servers can be added and removed from the MCP window.** The `+` row at the top
+  asks for a name, then a local command line or a remote URL, and adds it through
+  `experimental.mcp.add`. The bin on a row removes a server after a confirmation
+  modal — it edits OpenCode's own configuration — and a server that is removed
+  also leaves the favourites. Advanced settings (environment, headers, OAuth) stay
+  in the configuration file.
+- The window opens even with no servers configured, so the first one can be added
+  without leaving VS Code.
+- 45 smoke scenarios, covering the add flow, a cancelled removal and a completed
+  one.
+
 ## 0.1.21 — 2026-11-06
 
 - **The listing now sells what the extension does.** The readme opens with the

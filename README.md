@@ -159,7 +159,12 @@ answer to why a tool is missing.
 
 Picking a row — or clicking its plug — connects a server that is down and
 disconnects one that is up, through the CLI's own API (`mcp.list`,
-`experimental.mcp.connect` and `experimental.mcp.disconnect`). The list refreshes
+`experimental.mcp.connect` and `experimental.mcp.disconnect`). The `+` row at the
+top adds one: a name, then either a command line or an HTTP endpoint. The bin on a
+row removes a server after a confirmation, because it edits OpenCode's own
+configuration. Anything richer — environment variables, headers, OAuth — still
+belongs in the configuration file; the window covers what people set up in a
+minute. The list refreshes
 in place, so the state after the flip is what you see, and the window stays open
 to flip another one. Servers are defined in OpenCode's own configuration, not
 here: this window only switches them.

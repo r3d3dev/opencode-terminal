@@ -150,6 +150,10 @@ fakeVscode.workspace.workspaceFolders = [folder("/proj")];
 // `opencodeTerminal.pickModel` builds its items itself; the test only needs to
 // see them and to answer with one.
 fakeVscode.QuickPickItemKind = { Separator: -1 };
+let inputAnswers = [];
+fakeVscode.window.showInputBox = async () => inputAnswers.shift();
+let warningAnswer = "Remove";
+fakeVscode.window.showWarningMessage = async () => warningAnswer;
 fakeVscode.ThemeIcon = class ThemeIcon {
   constructor(id) {
     this.id = id;
@@ -1347,12 +1351,14 @@ const editor = (relPath, selection) => {
   }
   const mcpPicker = fakeVscode.window._quickPick;
   assert.ok(mcpPicker, "the MCP window opens");
-  assert.strictEqual(mcpPicker.items.length, 2, "one row per server");
-  assert.ok(mcpPicker.items[0].label.includes("GitHub"), "the title is preferred over the id");
-  assert.strictEqual(mcpPicker.items[0].description, "connected", "the state is the description");
-  assert.ok(mcpPicker.items[1].detail.includes("spawn ENOENT"), "the failure text is shown");
+  assert.strictEqual(mcpPicker.items.length, 3, "one row per server, plus the add row");
+  assert.strictEqual(mcpPicker.items[0].addRow, true, "the add row leads the list");
+  assert.ok(mcpPicker.items[1].label.includes("GitHub"), "the title is preferred over the id");
+  assert.strictEqual(mcpPicker.items[1].description, "connected", "the state is the description");
+  assert.ok(mcpPicker.items[2].detail.includes("spawn ENOENT"), "the failure text is shown");
 
-  mcpPicker._button({ item: mcpPicker.items[0], button: mcpPicker.items[0].buttons[0] });
+  const githubRow = () => mcpPicker.items.find((i) => i.server && i.server.name === "github");
+  mcpPicker._button({ item: githubRow(), button: githubRow().buttons[0] });
   for (let tick = 0; tick < 6; tick += 1) {
     await new Promise((r) => setImmediate(r));
   }
@@ -1360,14 +1366,14 @@ const editor = (relPath, selection) => {
     probe.calls.some((c) => c.command.includes("experimental.mcp.disconnect") && c.command.includes("server='github'")),
     "a connected server is disconnected",
   );
-  assert.strictEqual(mcpPicker.items[0].description, "disabled", "and the row follows");
+  assert.strictEqual(githubRow().description, "disabled", "and the row follows");
 
-  mcpPicker._button({ item: mcpPicker.items[0], button: mcpPicker.items[0].buttons[0] });
+  mcpPicker._button({ item: githubRow(), button: githubRow().buttons[0] });
   for (let tick = 0; tick < 6; tick += 1) {
     await new Promise((r) => setImmediate(r));
   }
   assert.ok(probe.calls.some((c) => c.command.includes("experimental.mcp.connect")), "a down server is connected");
-  assert.strictEqual(mcpPicker.items[0].description, "connected", "the row follows again");
+  assert.strictEqual(githubRow().description, "connected", "the row follows again");
 
   mcpPicker.hide();
   await mcpPending;
@@ -1391,7 +1397,7 @@ const editor = (relPath, selection) => {
   }
   const favPicker = fakeVscode.window._quickPick;
   const sentryRow = favPicker.items.find((i) => i.server && i.server.name === "sentry");
-  assert.strictEqual(sentryRow.buttons.length, 2, "a server row carries a plug and a star");
+  assert.strictEqual(sentryRow.buttons.length, 3, "a server row carries a plug, a star and a bin");
 
   favPicker._button({ item: sentryRow, button: sentryRow.buttons[1] });
   assert.deepStrictEqual(globalStore.favoriteMcpServers, ["sentry"], "the star is kept in global state");
@@ -1419,6 +1425,80 @@ const editor = (relPath, selection) => {
 
   favPicker.hide();
   await favPending;
+  quickPickAnswer = null;
+  probe.reply = null;
+  probe.calls.length = 0;
+
+  // 44. a server can be added from the window: a name, a kind, a command line
+  probe.reply = (command) => {
+    if (command.includes("api mcp.list")) return { stdout: JSON.stringify({ data: [] }) };
+    if (command.includes("experimental.mcp.add")) return { stdout: "{}" };
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  inputAnswers = ["github", "npx -y @modelcontextprotocol/server-github"];
+  let addStep = 0;
+  quickPickAnswer = (items) => {
+    addStep += 1;
+    if (addStep === 1) return items.find((i) => i.addRow);
+    if (addStep === 2) return items.find((i) => i.value === "local");
+    return null;
+  };
+  await calls.registered["opencodeTerminal.mcp"]();
+  for (let tick = 0; tick < 10; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  const addCall = probe.calls.find((c) => c.command.includes("experimental.mcp.add"));
+  assert.ok(addCall, "the add goes through the CLI API");
+  assert.ok(addCall.command.includes("server='github'"), "the name is passed");
+  assert.ok(addCall.command.includes('"type":"local"'), "the kind is passed");
+  assert.ok(addCall.command.includes("server-github"), "the command line is passed as arguments");
+  assert.ok(
+    fakeVscode.window.messages.some((m) => m.level === "info" && m.msg.includes("github")),
+    "the user is told the server was added",
+  );
+
+  // 45. removing asks first, and the row disappears afterwards
+  let remaining = [{ name: "sentry", status: { status: "disabled" } }];
+  probe.reply = (command) => {
+    if (command.includes("api mcp.list")) return { stdout: JSON.stringify({ data: remaining }) };
+    if (command.includes("experimental.mcp.remove")) {
+      remaining = [];
+      return { stdout: "{}" };
+    }
+    return { stdout: "" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickAnswer = "hold";
+  const removePending = calls.registered["opencodeTerminal.mcp"]();
+  for (let tick = 0; tick < 6; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  const removePicker = fakeVscode.window._quickPick;
+  const binRow = removePicker.items.find((i) => i.server && i.server.name === "sentry");
+  warningAnswer = undefined; // cancel first: nothing may happen
+  removePicker._button({ item: binRow, button: binRow.buttons[2] });
+  for (let tick = 0; tick < 6; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  assert.ok(!probe.calls.some((c) => c.command.includes("experimental.mcp.remove")), "a cancelled removal does nothing");
+
+  warningAnswer = "Remove";
+  const binRow2 = removePicker.items.find((i) => i.server && i.server.name === "sentry");
+  removePicker._button({ item: binRow2, button: binRow2.buttons[2] });
+  for (let tick = 0; tick < 8; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  assert.ok(
+    probe.calls.some((c) => c.command.includes("experimental.mcp.remove") && c.command.includes("server='sentry'")),
+    "the removal goes through the CLI API",
+  );
+  assert.ok(!removePicker.items.some((i) => i.server), "the row is gone after the removal");
+
+  removePicker.hide();
+  await removePending;
   quickPickAnswer = null;
   probe.reply = null;
   probe.calls.length = 0;

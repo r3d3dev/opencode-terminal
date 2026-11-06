@@ -622,13 +622,17 @@ function activate(context) {
           iconPath: new vscode.ThemeIcon(mcpFavorites.includes(server.name) ? "star-full" : "star"),
           tooltip: mcpFavorites.includes(server.name) ? "Remove from favourites" : "Add to favourites",
         },
+        {
+          iconPath: new vscode.ThemeIcon("trash"),
+          tooltip: "Remove this server",
+        },
       ],
     };
   };
 
-  /** Starred servers first, then the rest; a duplicate in both places is fine. */
+  /** Starred servers first, the rest below; the add row always leads. */
   const mcpItems = (servers) => {
-    const items = [];
+    const items = [{ label: "$(add) Add an MCP server", addRow: true }];
     const starred = servers.filter((server) => mcpFavorites.includes(server.name));
     if (starred.length > 0) {
       items.push({ label: "$(star-full) Favourites", kind: vscode.QuickPickItemKind.Separator });
@@ -675,6 +679,94 @@ function activate(context) {
     }
   };
 
+  /** Remove one server, after a confirmation: it edits the CLI's own config. */
+  const removeMcp = async (server, folder) => {
+    const name = server.title || server.name;
+    const confirmed = await vscode.window.showWarningMessage(
+      `Remove the MCP server "${name}" from OpenCode's configuration?`,
+      { modal: true },
+      "Remove",
+    );
+    if (confirmed !== "Remove") {
+      return false;
+    }
+    const result = await cliCall(`experimental.mcp.remove --param server=${shellQuote(server.name)}`, folder);
+    if (!result.ok) {
+      const reason = result.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
+      void vscode.window.showErrorMessage(
+        `OpenCode could not remove ${server.name}. Command tried: ${result.command}. It said: ${reason}`,
+      );
+      return false;
+    }
+    mcpFavorites = mcpFavorites.filter((entry) => entry !== server.name);
+    void context.globalState.update(MCP_FAVORITES_KEY, mcpFavorites);
+    return true;
+  };
+
+  /**
+   * Add one server: a name, then either a command line or a URL. Anything
+   * richer (environment, headers, OAuth) stays in the CLI's own config file —
+   * this window covers what people set up in a minute.
+   */
+  const addMcp = async (folder) => {
+    const name = await vscode.window.showInputBox({
+      prompt: "Name for the MCP server",
+      placeHolder: "github",
+      validateInput: (value) => (/^[A-Za-z0-9._-]+$/.test(value.trim()) ? undefined : "Letters, digits, dot, dash and underscore only"),
+    });
+    if (!name) {
+      return false;
+    }
+
+    const kind = await vscode.window.showQuickPick(
+      [
+        { label: "Local command", description: "a process the CLI starts", value: "local" },
+        { label: "Remote URL", description: "an HTTP MCP endpoint", value: "remote" },
+      ],
+      { placeHolder: "How does this server run?" },
+    );
+    if (!kind) {
+      return false;
+    }
+
+    let config;
+    if (kind.value === "local") {
+      const command = await vscode.window.showInputBox({
+        prompt: "Command to run, with its arguments",
+        placeHolder: "npx -y @modelcontextprotocol/server-filesystem /path",
+      });
+      if (!command) {
+        return false;
+      }
+      config = { type: "local", command: command.trim().split(/\s+/) };
+    } else {
+      const url = await vscode.window.showInputBox({
+        prompt: "Server URL",
+        placeHolder: "https://example.com/mcp",
+        validateInput: (value) => (/^https?:\/\//.test(value.trim()) ? undefined : "An http or https URL"),
+      });
+      if (!url) {
+        return false;
+      }
+      config = { type: "remote", url: url.trim() };
+    }
+
+    const body = JSON.stringify({ config });
+    const result = await cliCall(
+      `experimental.mcp.add --param server=${shellQuote(name.trim())} --data ${shellQuote(body)}`,
+      folder,
+    );
+    if (!result.ok) {
+      const reason = result.error.split("\n").filter(Boolean).slice(-1)[0] || "no answer";
+      void vscode.window.showErrorMessage(
+        `OpenCode could not add ${name}. Command tried: ${result.command}. It said: ${reason}`,
+      );
+      return false;
+    }
+    void vscode.window.showInformationMessage(`MCP server ${name.trim()} added.`);
+    return true;
+  };
+
   /**
    * The MCP window: every server with its state, a plug to flip it, and the
    * error text when it failed. The list refreshes in place, because connecting a
@@ -695,16 +787,11 @@ function activate(context) {
       );
       return;
     }
-    if (first.servers.length === 0) {
-      void vscode.window.showInformationMessage(
-        "No MCP servers are configured for this project. Add them to OpenCode's own configuration.",
-      );
-      return;
-    }
-
     const quickPick = vscode.window.createQuickPick();
     quickPick.matchOnDescription = true;
-    quickPick.placeholder = "MCP servers: pick one or its plug to connect or disconnect";
+    quickPick.placeholder = first.servers.length
+      ? "MCP servers: pick one or its plug to connect or disconnect"
+      : "No MCP servers yet: add one below";
     let servers = first.servers;
     let busy = false;
     const refresh = () => {
@@ -736,17 +823,43 @@ function activate(context) {
       if (!item || !item.server) {
         return;
       }
-      // The star is the second button; it only redraws, the plug talks to the CLI.
+      // Order on the row: plug, star, bin. Only the star stays local, the other
+      // two talk to the CLI.
       if (item.buttons && item.buttons[1] === event.button) {
         starMcp(item.server);
         refresh();
+        return;
+      }
+      if (item.buttons && item.buttons[2] === event.button) {
+        void removeMcp(item.server, folder).then(async (removed) => {
+          if (!removed) {
+            return;
+          }
+          const next = await mcpServers(folder);
+          if (next.ok) {
+            servers = next.servers;
+            refresh();
+          }
+        });
         return;
       }
       void flip(item.server);
     });
     quickPick.onDidAccept(() => {
       const [item] = quickPick.selectedItems;
-      if (item && item.server) {
+      if (!item) {
+        return;
+      }
+      if (item.addRow) {
+        quickPick.hide();
+        void addMcp(folder).then((added) => {
+          if (added) {
+            void pickMcp();
+          }
+        });
+        return;
+      }
+      if (item.server) {
         void flip(item.server);
       }
     });

@@ -2,7 +2,7 @@
   "name": "opencode-terminal-cli",
   "displayName": "OpenCode Term",
   "description": "OpenCode terminal for VS Code: one shortcut to the agent, @file references, a model picker grouped by provider with favourites, and an MCP window. Zero dependencies, works with CLI v1 and v2.",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "publisher": "r3d3dev",
   "license": "MIT",
   "author": {
