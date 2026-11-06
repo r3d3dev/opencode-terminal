@@ -1375,6 +1375,54 @@ const editor = (relPath, selection) => {
   probe.reply = null;
   probe.calls.length = 0;
 
+  // 43. MCP favourites: the star pins a server above the rest and is kept in
+  //     global state, so it survives the window
+  mcpUp = true;
+  probe.reply = (command) => {
+    if (command.includes("api mcp.list")) return { stdout: JSON.stringify(mcpPayload()) };
+    return { stdout: "{}" };
+  };
+  fakeVscode.window.messages.length = 0;
+  probe.calls.length = 0;
+  quickPickAnswer = "hold";
+  const favPending = calls.registered["opencodeTerminal.mcp"]();
+  for (let tick = 0; tick < 6; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  const favPicker = fakeVscode.window._quickPick;
+  const sentryRow = favPicker.items.find((i) => i.server && i.server.name === "sentry");
+  assert.strictEqual(sentryRow.buttons.length, 2, "a server row carries a plug and a star");
+
+  favPicker._button({ item: sentryRow, button: sentryRow.buttons[1] });
+  assert.deepStrictEqual(globalStore.favoriteMcpServers, ["sentry"], "the star is kept in global state");
+  assert.ok(
+    favPicker.items.some((i) => i.kind === -1 && i.label.includes("Favourites")),
+    "favourites get their own separator",
+  );
+  assert.strictEqual(
+    favPicker.items.find((i) => i.server).server.name,
+    "sentry",
+    "a favourite leads the list",
+  );
+
+  // the plug still acts on the server, not on the star
+  probe.calls.length = 0;
+  const favouriteRow = favPicker.items.find((i) => i.server && i.server.name === "sentry");
+  favPicker._button({ item: favouriteRow, button: favouriteRow.buttons[0] });
+  for (let tick = 0; tick < 6; tick += 1) {
+    await new Promise((r) => setImmediate(r));
+  }
+  assert.ok(
+    probe.calls.some((c) => c.command.includes("experimental.mcp.connect")),
+    "the plug still connects the server",
+  );
+
+  favPicker.hide();
+  await favPending;
+  quickPickAnswer = null;
+  probe.reply = null;
+  probe.calls.length = 0;
+
   console.log("OK: all smoke tests passed");
 })().catch((err) => {
   console.error("FAIL:", err.message);

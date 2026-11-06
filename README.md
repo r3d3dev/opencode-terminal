@@ -60,7 +60,7 @@ second is the official one; a cell reads *macOS / Windows · Linux*.
 | **OpenCode: Open in New Terminal** | `Cmd+Ctrl+N`<br>`Cmd+Shift+Esc` | `Ctrl+Alt+N`<br>`Ctrl+Shift+Esc` | Always start a fresh terminal with OpenCode. |
 | **Send to OpenCode** | `Cmd+Ctrl+P`<br>`Cmd+Alt+K` | `Ctrl+Alt+P`<br>`Ctrl+Alt+K` | Send the selected text, or an `@file` reference — see *Sending files or text* below. |
 | **OpenCode: Switch Model** | `Cmd+Ctrl+M` | `Ctrl+Alt+M` | Pick a model with the providers grouped; applied to the running session — see *Switching the model* below. |
-| **OpenCode: MCP Servers** | `Cmd+Ctrl+,` | `Ctrl+Alt+,` | See each MCP server's state and connect or disconnect it — see *MCP servers* below. |
+| **OpenCode: MCP Servers** | `Cmd+Ctrl+,`<br>`Cmd+Ctrl+Shift+M` | `Ctrl+Alt+,`<br>`Ctrl+Alt+Shift+M` | See each MCP server's state and connect, disconnect or star it — see *MCP servers* below. |
 
 When a new terminal is opened and the active editor file belongs to the
 workspace, its `@file` reference is appended automatically.
@@ -154,6 +154,13 @@ disconnects one that is up, through the CLI's own API (`mcp.list`,
 in place, so the state after the flip is what you see, and the window stays open
 to flip another one. Servers are defined in OpenCode's own configuration, not
 here: this window only switches them.
+
+The star on a row pins that server into a *Favourites* section at the top, the
+same way the model picker does, and the choice is kept in global state. The
+second keybinding exists because punctuation keys do not reach a keybinding while
+a non-Latin keyboard layout is active — a VS Code limitation, not something an
+extension can route around. `Cmd+Ctrl+Shift+M` uses a letter and works in any
+layout.
 
 ## Reopening the window
 

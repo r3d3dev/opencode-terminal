@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.20 — 2026-10-28
+
+- **Favourites in the MCP window.** The star on a row pins a server into a
+  *Favourites* section at the top, next to the starred models, and the choice is
+  kept in global state. The plug stays the first button, so connecting and
+  starring never get in each other's way.
+- **A second keybinding for the MCP window**, `Cmd+Ctrl+Shift+M`
+  (`Ctrl+Alt+Shift+M`). Punctuation keys do not reach a keybinding while a
+  non-Latin layout is active — that is how VS Code dispatches keys, not something
+  an extension can intercept — so the window gets a way in that survives a layout
+  switch.
+- 43 smoke scenarios, one of them for starring a server and one for the plug
+  still acting on the server.
+
 ## 0.1.19 — 2026-10-28
 
 - **An MCP window** on `Cmd+Ctrl+,` (`Ctrl+Alt+,`): every server the project

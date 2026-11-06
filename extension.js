@@ -474,6 +474,10 @@ function activate(context) {
   /** Provider the picker is narrowed to; remembered for the next invocation. */
   let providerFilter;
 
+  /** Starred MCP servers, kept next to the starred models. */
+  const MCP_FAVORITES_KEY = "favoriteMcpServers";
+  let mcpFavorites = context.globalState.get(MCP_FAVORITES_KEY, []);
+
   /** Starred models, kept in the window's global state so they outlive a window. */
   const FAVORITES_KEY = "favoriteModels";
   let favoriteKeys = context.globalState.get(FAVORITES_KEY, []);
@@ -614,8 +618,37 @@ function activate(context) {
           iconPath: new vscode.ThemeIcon(state === "connected" ? "debug-disconnect" : "plug"),
           tooltip: state === "connected" ? "Disconnect" : "Connect",
         },
+        {
+          iconPath: new vscode.ThemeIcon(mcpFavorites.includes(server.name) ? "star-full" : "star"),
+          tooltip: mcpFavorites.includes(server.name) ? "Remove from favourites" : "Add to favourites",
+        },
       ],
     };
+  };
+
+  /** Starred servers first, then the rest; a duplicate in both places is fine. */
+  const mcpItems = (servers) => {
+    const items = [];
+    const starred = servers.filter((server) => mcpFavorites.includes(server.name));
+    if (starred.length > 0) {
+      items.push({ label: "$(star-full) Favourites", kind: vscode.QuickPickItemKind.Separator });
+      for (const server of starred) {
+        items.push(mcpRow(server));
+      }
+      items.push({ label: "$(server) All servers", kind: vscode.QuickPickItemKind.Separator });
+    }
+    for (const server of servers) {
+      items.push(mcpRow(server));
+    }
+    return items;
+  };
+
+  /** Flip the star of one server and remember the choice. */
+  const starMcp = (server) => {
+    mcpFavorites = mcpFavorites.includes(server.name)
+      ? mcpFavorites.filter((entry) => entry !== server.name)
+      : [...mcpFavorites, server.name];
+    void context.globalState.update(MCP_FAVORITES_KEY, mcpFavorites);
   };
 
   /** The MCP servers of this project, as the CLI reports them. */
@@ -675,7 +708,7 @@ function activate(context) {
     let servers = first.servers;
     let busy = false;
     const refresh = () => {
-      quickPick.items = servers.map(mcpRow);
+      quickPick.items = mcpItems(servers);
     };
     refresh();
 
@@ -699,9 +732,17 @@ function activate(context) {
     };
 
     quickPick.onDidTriggerItemButton((event) => {
-      if (event.item && event.item.server) {
-        void flip(event.item.server);
+      const item = event.item;
+      if (!item || !item.server) {
+        return;
       }
+      // The star is the second button; it only redraws, the plug talks to the CLI.
+      if (item.buttons && item.buttons[1] === event.button) {
+        starMcp(item.server);
+        refresh();
+        return;
+      }
+      void flip(item.server);
     });
     quickPick.onDidAccept(() => {
       const [item] = quickPick.selectedItems;
